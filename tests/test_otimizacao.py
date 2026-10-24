@@ -1,7 +1,8 @@
 import unittest
 
 from otimizador.avaliacao import ACIMA, INVALIDA, OK, OK_VERIFICAR, Iteracao
-from otimizador.otimizacao import ErroLinhaDeBase, escolher_melhor, otimizar
+from otimizador.otimizacao import (PARADA_INVALIDAS, PARADA_MAX_ITERACOES, PARADA_PEDIDA, ErroLinhaDeBase,
+                                   escolher_melhor, otimizar)
 from otimizador.planilha import Configuracao, Parametro
 
 
@@ -36,7 +37,7 @@ def _nunca():
 
 class TestOtimizacao(unittest.TestCase):
     def test_encontra_viavel_leve(self):
-        melhor, hist = otimizar(Falso(10.0), _cfg(), _nada, _nunca)
+        melhor, hist, _ = otimizar(Falso(10.0), _cfg(), _nada, _nunca)
         self.assertEqual(melhor.status, OK)
         self.assertLessEqual(melhor.von_mises, 10.0)
         self.assertLess(melhor.massa_kg, 30.0)  # começa em 40; ótimo é 20
@@ -62,8 +63,9 @@ class TestOtimizacao(unittest.TestCase):
             self.assertGreaterEqual(mudanca, 0.1, v)
 
     def test_max_iteracoes(self):
-        _, hist = otimizar(Falso(10.0), _cfg(max_iteracoes=5), _nada, _nunca)
+        _, hist, motivo = otimizar(Falso(10.0), _cfg(max_iteracoes=5), _nada, _nunca)
         self.assertLessEqual(len(hist), 5)
+        self.assertEqual(motivo, PARADA_MAX_ITERACOES)
 
     def test_parada_pedida(self):
         chamadas = []
@@ -71,8 +73,9 @@ class TestOtimizacao(unittest.TestCase):
         def parar():
             chamadas.append(1)
             return len(chamadas) >= 3
-        melhor, hist = otimizar(Falso(10.0), _cfg(), _nada, parar)
+        melhor, hist, motivo = otimizar(Falso(10.0), _cfg(), _nada, parar)
         self.assertLessEqual(len(hist), 4)
+        self.assertEqual(motivo, PARADA_PEDIDA)
         self.assertIsNotNone(melhor)
 
     def test_ao_iterar_avisa_melhor(self):
@@ -82,7 +85,7 @@ class TestOtimizacao(unittest.TestCase):
         self.assertEqual(len(avisos), 6)
 
     def test_nenhum_viavel(self):
-        melhor, hist = otimizar(Falso(0.1), _cfg(limite=0.1, max_iteracoes=15), _nada, _nunca)
+        melhor, hist, _ = otimizar(Falso(0.1), _cfg(limite=0.1, max_iteracoes=15), _nada, _nunca)
         self.assertEqual(melhor.status, ACIMA)
         self.assertEqual(melhor.von_mises, min(it.von_mises for it in hist))
 
@@ -93,12 +96,12 @@ class TestOtimizacao(unittest.TestCase):
         self.assertIs(escolher_melhor([verificar]), verificar)
 
     def test_invalida_nao_quebra(self):
-        melhor, hist = otimizar(Falso(10.0, invalida_se=lambda v: v["a"] < 12), _cfg(), _nada, _nunca)
+        melhor, hist, _ = otimizar(Falso(10.0, invalida_se=lambda v: v["a"] < 12), _cfg(), _nada, _nunca)
         self.assertIsNotNone(melhor)
         self.assertNotEqual(melhor.status, INVALIDA)
 
     def test_linha_de_base_ja_viavel(self):
-        melhor, hist = otimizar(Falso(1e6), _cfg(limite=1e6), _nada, _nunca)
+        melhor, hist, _ = otimizar(Falso(1e6), _cfg(limite=1e6), _nada, _nunca)
         self.assertEqual(melhor.status, OK)
         self.assertLessEqual(melhor.massa_kg, hist[0].massa_kg)
 
@@ -111,8 +114,9 @@ class TestOtimizacao(unittest.TestCase):
 
     def test_tres_invalidas_seguidas(self):
         falso = Falso(10.0, invalida_se=lambda v: len(falso.chamadas) > 1)
-        melhor, hist = otimizar(falso, _cfg(), _nada, _nunca)
+        melhor, hist, motivo = otimizar(falso, _cfg(), _nada, _nunca)
         self.assertEqual(len(hist), 4)
+        self.assertEqual(motivo, PARADA_INVALIDAS)
         self.assertEqual([it.status for it in hist[1:]], [INVALIDA] * 3)
         self.assertIs(melhor, hist[0])
 

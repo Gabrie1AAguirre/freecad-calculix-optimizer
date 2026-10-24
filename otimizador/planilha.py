@@ -35,13 +35,25 @@ class Configuracao:
     excluir: dict = field(default_factory=dict)
 
 
+def _de_quantidade(q):
+    """Quantity do FreeCAD → float em mm (comprimento) ou MPa (tensão).
+    O .Value de uma tensão vem em kPa (unidade interna), daí a conversão."""
+    if q.Unit == App.Units.Unit("MPa"):
+        return float(q.getValueAs("MPa"))
+    return float(q.Value)
+
+
 def valor_numerico(valor):
-    """Converte número, Quantity ou texto ('12,5', '20 mm') em float (mm/MPa)."""
+    """Converte número, Quantity ou texto ('12,5', '20 mm', '250 MPa') em float (mm/MPa)."""
     if isinstance(valor, (int, float)):
         return float(valor)
     if hasattr(valor, "Value"):
-        return float(valor.Value)
+        return _de_quantidade(valor)
     texto = str(valor).strip().lstrip("'=").replace(",", ".")
+    try:
+        return _de_quantidade(App.Units.Quantity(texto))
+    except Exception:
+        pass
     achado = re.match(r"^[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?", texto)
     if not achado:
         raise ValueError("não é um número: %r" % valor)

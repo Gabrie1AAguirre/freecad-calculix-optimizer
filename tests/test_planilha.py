@@ -57,6 +57,16 @@ class TestPlanilha(unittest.TestCase):
         cfg = ler_configuracao(_doc_com_planilha(celulas))
         self.assertEqual((cfg.parametros[0].minimo, cfg.parametros[0].maximo), (12.5, 20.0))
 
+    def test_limite_com_unidade(self):
+        celulas = [c for c in BASE if c[0] != "B5"] + [("B5", "250 MPa", "tensao_limite")]
+        self.assertEqual(ler_configuracao(_doc_com_planilha(celulas)).tensao_limite, 250.0)
+        celulas = [c for c in BASE if c[0] != "B5"] + [("B5", "0.25 GPa", "tensao_limite")]
+        self.assertAlmostEqual(ler_configuracao(_doc_com_planilha(celulas)).tensao_limite, 250.0)
+
+    def test_texto_com_outra_unidade_de_comprimento(self):
+        celulas = [c for c in BASE if c[0] != "D2"] + [("D2", "'2 cm", None)]
+        self.assertEqual(ler_configuracao(_doc_com_planilha(celulas)).parametros[0].maximo, 20.0)
+
     def test_sem_planilha(self):
         doc = App.newDocument("vazio")
         with self.assertRaises(ErroPlanilha) as ctx:

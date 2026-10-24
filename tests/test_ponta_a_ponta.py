@@ -89,6 +89,7 @@ class TestPontaAPonta(unittest.TestCase):
         self.assertIn(codigo, (0, 2), saida)
         self.assertEqual(len(self._historico()), 1)
         self.assertTrue(os.path.exists(os.path.join(self.resultados, "L_part_otimizada.FCStd")))
+        self.assertIn("Parada pedida pelo usuário", saida)
 
     def test_gui_fumaca(self):
         peca = self._peca(2)

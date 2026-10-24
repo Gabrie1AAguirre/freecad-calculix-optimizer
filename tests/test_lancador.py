@@ -36,6 +36,12 @@ class TestLancador(unittest.TestCase):
         self.assertEqual(otimizar.ler_codigo_fim(["### FIM codigo=1"]), 1)
         self.assertIsNone(otimizar.ler_codigo_fim(["sem fim"]))
 
+    def test_freecad_nao_recebe_ctrl_c(self):
+        # No Windows o Ctrl+C vai para todos os processos do console; o FreeCAD fica num
+        # grupo próprio para não ser interrompido no meio — quem para é o arquivo 'parar'.
+        opcoes = otimizar._opcoes_processo()
+        self.assertTrue(opcoes["creationflags"] & subprocess.CREATE_NEW_PROCESS_GROUP)
+
     def test_volta_ao_terminal_sem_esperar_fechar_freecad(self):
         # Com a janela aberta o FreeCAD continua rodando; o lançador deve voltar
         # assim que o log marcar o fim.

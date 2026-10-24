@@ -49,6 +49,13 @@ def _comando(pasta_freecad, gui):
             "exec(open(r'%s', encoding='utf-8').read())" % INICIAR]
 
 
+def _opcoes_processo():
+    """No Windows o Ctrl+C vai para todos os processos do console. Num grupo
+    próprio, o FreeCAD (e o CalculiX) não são interrompidos no meio: o lançador
+    recebe o Ctrl+C e pede a parada pelo arquivo 'parar'."""
+    return {"creationflags": getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)}
+
+
 def _acompanhar(processo, caminho_log, caminho_parar):
     """Mostra as linhas novas do log até o FreeCAD terminar. Ctrl+C pede parada."""
     lidas, linhas = 0, []
@@ -115,7 +122,8 @@ def main(argv=None):
 
     env = dict(os.environ, **{VARIAVEL_AMBIENTE: caminho_trabalho})
     with open(os.path.join(pasta, "freecad_saida.txt"), "w", encoding="utf-8", errors="replace") as saida:
-        processo = subprocess.Popen(_comando(pasta_freecad, gui), env=env, stdout=saida, stderr=subprocess.STDOUT)
+        processo = subprocess.Popen(_comando(pasta_freecad, gui), env=env, stdout=saida, stderr=subprocess.STDOUT,
+                                    **_opcoes_processo())
         linhas = _acompanhar(processo, caminho_log, os.path.join(pasta, NOME_PARAR))
 
     codigo = ler_codigo_fim(linhas)

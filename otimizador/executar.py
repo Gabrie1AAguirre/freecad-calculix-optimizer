@@ -8,7 +8,7 @@ import FreeCAD as App
 from otimizador.avaliacao import OK, OK_VERIFICAR, Avaliador
 from otimizador.checagem import checar
 from otimizador.modelo import encontrar_modelo
-from otimizador.otimizacao import ErroLinhaDeBase, otimizar
+from otimizador.otimizacao import ErroLinhaDeBase, mensagem_parada, otimizar
 from otimizador.planilha import ler_configuracao
 from otimizador.saidas import Historico, cabecalho_terminal, gerar_grafico, linha_terminal, resumo
 from otimizador.trabalho import MARCA_FIM, NOME_LOG, NOME_PARAR, carregar
@@ -121,14 +121,13 @@ def otimizar_peca(trabalho, log):
             doc.saveCopy(destino)
 
     try:
-        melhor, historico = otimizar(av.avaliar, cfg, ao_iterar, lambda: os.path.exists(caminho_parar))
+        melhor, historico, motivo = otimizar(av.avaliar, cfg, ao_iterar, lambda: os.path.exists(caminho_parar))
     except ErroLinhaDeBase as exc:
         log.escrever("A peça com os valores atuais não pôde ser analisada: %s" % exc)
         return 1
 
     log.escrever("")
-    if os.path.exists(caminho_parar):
-        log.escrever("Parada pedida pelo usuário; o melhor resultado até aqui foi salvo.")
+    log.escrever(mensagem_parada(motivo, cfg))
     gerar_grafico(historico, cfg.tensao_limite, os.path.join(trabalho.pasta, "grafico.png"))
     log.escrever(resumo(historico[0], melhor, cfg.tensao_limite))
     log.escrever("Resultados em: %s" % trabalho.pasta)
