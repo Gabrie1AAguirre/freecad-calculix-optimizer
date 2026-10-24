@@ -2,3 +2,4 @@ resultados/
 *.FCBak
 __pycache__/
 .superpowers/
+/L_part.FCStd
