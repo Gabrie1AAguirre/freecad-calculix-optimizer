@@ -1,4 +1,5 @@
 """Gera a malha (Gmsh) e roda o CalculiX para a análise da peça."""
+import os
 
 
 class FalhaAvaliacao(Exception):
@@ -10,6 +11,7 @@ def rodar_fea(modelo, pasta_trabalho):
     from femmesh.gmshtools import GmshTools
     from femtools import ccxtools
 
+    os.makedirs(pasta_trabalho, exist_ok=True)
     try:
         erro = GmshTools(modelo.malha).create_mesh()
     except Exception as exc:

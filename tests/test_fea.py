@@ -18,6 +18,12 @@ class TestFea(unittest.TestCase):
         self.assertEqual(len(resultados), 1)
         self.assertEqual(len(r.NodeNumbers), len(r.vonMises))
 
+    def test_cria_pasta_de_trabalho(self):
+        m = encontrar_modelo(abrir_copia(EXEMPLO_L, self))
+        pasta = os.path.join(tempfile.mkdtemp(), "nova", "ccx")
+        rodar_fea(m, pasta)
+        self.assertTrue(any(n.endswith(".inp") for n in os.listdir(pasta)))
+
     def test_falha_vira_mensagem(self):
         doc = abrir_copia(EXEMPLO_L, self)
         m = encontrar_modelo(doc)
