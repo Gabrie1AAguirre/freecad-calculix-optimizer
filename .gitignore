@@ -1,0 +1,4 @@
+resultados/
+*.FCBak
+__pycache__/
+.superpowers/
