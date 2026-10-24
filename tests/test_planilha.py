@@ -36,7 +36,7 @@ class TestPlanilha(unittest.TestCase):
         self.assertEqual(cfg.parametros[1].valor, 30.0)
         self.assertEqual(cfg.parametros[0].celula, "B2")
         self.assertEqual(cfg.tensao_limite, 250.0)
-        self.assertEqual(cfg.max_iteracoes, 30)
+        self.assertEqual(cfg.max_iteracoes, 20)
         self.assertIsNone(cfg.zona_exclusao_mm)
         self.assertEqual(cfg.excluir, {})
 

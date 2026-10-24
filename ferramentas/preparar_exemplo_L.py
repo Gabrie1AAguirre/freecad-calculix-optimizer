@@ -1,11 +1,11 @@
-"""Gera exemplos/L_part.FCStd a partir do L_part.FCStd do usuário.
+"""Gera exemplos/L_part.FCStd a partir da peça em L original (tests/dados/L_part_original.FCStd).
 
 Adiciona a planilha Parametros, um raio no canto interno (fillet de sketch)
 e liga as espessuras das pernas à planilha, mantendo o tamanho externo
 180 x 230 mm. O arquivo de entrada só é lido.
 
 Uso (com o Python do FreeCAD):
-    python.exe ferramentas/preparar_exemplo_L.py --entrada L_part.FCStd --saida exemplos/L_part.FCStd
+    python.exe ferramentas/preparar_exemplo_L.py --entrada tests/dados/L_part_original.FCStd --saida exemplos/L_part.FCStd
 """
 import argparse
 import os
@@ -31,7 +31,7 @@ PARAMETROS = [
 ]
 CONFIGURACOES = [
     ("Von Mises máximo permitido (MPa)", "tensao_limite", 250),
-    ("Máximo de iterações", "max_iteracoes", 30),
+    ("Máximo de iterações", "max_iteracoes", 20),
 ]
 
 TIPOS_RESULTADO = ("Fem::FemResultObjectPython", "Fem::FemPostPipeline",
@@ -145,7 +145,7 @@ def preparar(entrada, saida):
 def main():
     raiz = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--entrada", default=os.path.join(raiz, "L_part.FCStd"))
+    parser.add_argument("--entrada", default=os.path.join(raiz, "tests", "dados", "L_part_original.FCStd"))
     parser.add_argument("--saida", default=os.path.join(raiz, "exemplos", "L_part.FCStd"))
     args = parser.parse_args()
     os.makedirs(os.path.dirname(os.path.abspath(args.saida)), exist_ok=True)

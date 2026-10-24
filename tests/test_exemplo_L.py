@@ -19,7 +19,7 @@ class TestExemploL(unittest.TestCase):
             "espessura_horizontal": (30.0, 20.0, 45.0),
         })
         self.assertEqual(cfg.tensao_limite, 250.0)
-        self.assertEqual(cfg.max_iteracoes, 30)
+        self.assertEqual(cfg.max_iteracoes, 20)
 
     def test_raio_no_canto_interno(self):
         doc = abrir_copia(EXEMPLO_L, self)

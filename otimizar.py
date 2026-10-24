@@ -62,7 +62,9 @@ def _acompanhar(processo, caminho_log, caminho_parar):
                     if not linha.startswith(MARCA_FIM):
                         print(linha, flush=True)
                 lidas = len(linhas)
-            if terminou:
+            # Com interface o FreeCAD continua aberto mostrando o resultado:
+            # o terminal volta assim que o log marca o fim.
+            if terminou or ler_codigo_fim(linhas) is not None:
                 return linhas
             time.sleep(INTERVALO_S)
         except KeyboardInterrupt:

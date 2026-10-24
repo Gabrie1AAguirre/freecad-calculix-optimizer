@@ -104,7 +104,7 @@ iter  raio_canto  esp_vertical  VonMises_max  massa    status
 - **Malha**: usa as configurações de malha do próprio usuário (`FEMMeshGmsh`) em todas as iterações; a ferramenta não refina malha por conta própria na v1. O tutorial explica que canto vivo não tem tensão "verdadeira". *(minha decisão)*
 - **Proteção contra nomes topológicos**: depois de cada recompute, verificar que cada condição de contorno ainda aponta para uma face existente e "parecida" com a original (ex.: normal e posição/área do centroide dentro de tolerância). Se não, a iteração é marcada inválida com mensagem clara; se acontecer na linha de base ou repetidamente, parar e explicar. *(minha decisão)*
 - **Falhas de avaliação** (recompute com erro, sketch impossível, Gmsh ou CalculiX falham): iteração marcada como inválida no CSV com motivo, tratada pelo otimizador como ponto ruim; a rodada continua. *(minha decisão)*
-- **Parada**: convergência do algoritmo ou `max_iteracoes` (padrão 30). Ctrl+C no terminal (ou fechar o FreeCAD) encerra salvando o melhor até então. *(minha decisão)*
+- **Parada**: convergência do algoritmo ou `max_iteracoes` (padrão 20). Ctrl+C no terminal (ou fechar o FreeCAD) encerra salvando o melhor até então. *(minha decisão)*
 - **Arquivo original nunca é modificado**; trabalha numa cópia.
 
 ## 8. Saídas

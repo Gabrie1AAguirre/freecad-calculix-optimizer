@@ -2,6 +2,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 
 import otimizar
@@ -34,6 +35,20 @@ class TestLancador(unittest.TestCase):
         self.assertEqual(otimizar.ler_codigo_fim(["### FIM codigo=2\n"]), 2)
         self.assertEqual(otimizar.ler_codigo_fim(["### FIM codigo=1"]), 1)
         self.assertIsNone(otimizar.ler_codigo_fim(["sem fim"]))
+
+    def test_volta_ao_terminal_sem_esperar_fechar_freecad(self):
+        # Com a janela aberta o FreeCAD continua rodando; o lançador deve voltar
+        # assim que o log marcar o fim.
+        pasta = tempfile.mkdtemp()
+        log = os.path.join(pasta, "log.txt")
+        with open(log, "w", encoding="utf-8") as f:
+            f.write("linha\n### FIM codigo=0\n")
+        processo = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)"])
+        self.addCleanup(processo.kill)
+        inicio = time.time()
+        linhas = otimizar._acompanhar(processo, log, os.path.join(pasta, "parar"))
+        self.assertLess(time.time() - inicio, 5)
+        self.assertEqual(otimizar.ler_codigo_fim(linhas), 0)
 
 
 if __name__ == "__main__":

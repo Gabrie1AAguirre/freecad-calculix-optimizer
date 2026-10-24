@@ -8,7 +8,7 @@ import FreeCAD as App
 
 RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 EXEMPLO_L = os.path.join(RAIZ, "exemplos", "L_part.FCStd")
-ORIGINAL_L = os.path.join(RAIZ, "L_part.FCStd")
+ORIGINAL_L = os.path.join(RAIZ, "tests", "dados", "L_part_original.FCStd")  # peça sem planilha, com resultados antigos
 FREECAD_BIN = os.environ.get("FREECAD_BIN", r"C:\Program Files\FreeCAD 1.1\bin")
 FREECAD_PYTHON = os.path.join(FREECAD_BIN, "python.exe")
 
