@@ -81,3 +81,14 @@ def faces_cc(modelo):
                     pass
         faces[cc.Name] = lista
     return faces
+
+
+def objetos_com_erro(doc):
+    """Labels dos objetos que não recalcularam (estado Invalid/Error)."""
+    return [o.Label for o in doc.Objects if "Invalid" in o.State or "Error" in o.State]
+
+
+def tamanho_elemento_mm(modelo):
+    """Tamanho máximo de elemento da malha; se for automático (0), 1/40 da diagonal da peça."""
+    tamanho = modelo.malha.CharacteristicLengthMax.Value
+    return tamanho if tamanho > 0 else modelo.corpo.Shape.BoundBox.DiagonalLength / 40

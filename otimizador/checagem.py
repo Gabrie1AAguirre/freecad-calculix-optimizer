@@ -2,7 +2,7 @@
 import re
 from dataclasses import dataclass
 
-from otimizador.modelo import ErroModelo, encontrar_modelo
+from otimizador.modelo import ErroModelo, encontrar_modelo, objetos_com_erro
 from otimizador.planilha import ALIAS_TENSAO_LIMITE, NOME_PLANILHA, ErroPlanilha, ler_configuracao
 
 TIPOS_ARESTA = ("PartDesign::Fillet", "PartDesign::Chamfer")
@@ -27,7 +27,7 @@ def _usa_alias(expressao, alias):
 
 def _checar_recompute(doc):
     doc.recompute()
-    quebrados = [o.Label for o in doc.Objects if "Invalid" in o.State or "Error" in o.State]
+    quebrados = objetos_com_erro(doc)
     if quebrados:
         return [Problema("erro", "O documento não consegue recalcular com os valores atuais (%s). "
                                  "Abra no FreeCAD e corrija os objetos marcados com erro."
