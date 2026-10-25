@@ -1,7 +1,7 @@
 """Otimizador de forma FreeCAD + CalculiX.
 
 Uso:
-    python otimizar.py minha_peca.FCStd                 # abre o FreeCAD e otimiza ao vivo
+    python otimizar.py minha_peca.FCStd                 # FreeCAD mostra a peça, PrePoMax as tensões
     python otimizar.py minha_peca.FCStd --sem-interface # sem abrir janela
     python otimizar.py minha_peca.FCStd --checar        # só verifica a preparação
 
@@ -19,6 +19,7 @@ from datetime import datetime
 RAIZ = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, RAIZ)
 
+from otimizador import prepomax  # noqa: E402
 from otimizador.trabalho import (MARCA_FIM, NOME_LOG, NOME_PARAR, VARIAVEL_AMBIENTE,  # noqa: E402
                                  Trabalho, salvar)
 
@@ -40,6 +41,18 @@ def _pasta_freecad(args):
         pasta = os.path.join(pasta, "bin")
     faltando = [exe for exe in ("freecad.exe", "freecadcmd.exe") if not os.path.isfile(os.path.join(pasta, exe))]
     return pasta, faltando
+
+
+def _escolher_prepomax(pasta, sem_prepomax, gui):
+    """(PrePoMax.exe ou None, aviso ou None). Só abre o PrePoMax com interface."""
+    if sem_prepomax or not gui:
+        return None, None
+    exe = prepomax.encontrar(pasta)
+    if exe is None:
+        return None, ("Não encontrei o PrePoMax%s: as cores de tensão ficam na janela do FreeCAD. Para ver no "
+                      "PrePoMax, informe a pasta com --prepomax \"C:\\...\\PrePoMax v2.6.0\"."
+                      % (" em %s" % pasta if pasta else ""))
+    return exe, None
 
 
 def _comando(pasta_freecad, gui):
@@ -90,6 +103,9 @@ def main(argv=None):
     parser.add_argument("--checar", action="store_true", help="só verifica se a peça está pronta")
     parser.add_argument("--freecad", help="pasta do FreeCAD (a que tem freecad.exe), se não for a padrão")
     parser.add_argument("--resultados", help="pasta onde salvar os resultados")
+    parser.add_argument("--prepomax", help="pasta do PrePoMax (a que tem PrePoMax.exe), se não for achada sozinha")
+    parser.add_argument("--sem-prepomax", action="store_true",
+                        help="não abre o PrePoMax: as cores de tensão ficam na janela do FreeCAD")
     parser.add_argument("--fechar-ao-terminar", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args(argv)
 
@@ -115,8 +131,11 @@ def main(argv=None):
         os.remove(caminho_log)
 
     gui = not (args.sem_interface or args.checar)
+    exe_prepomax, aviso = _escolher_prepomax(args.prepomax, args.sem_prepomax, gui)
+    if aviso:
+        print(aviso)
     trabalho = Trabalho(modo="checar" if args.checar else "otimizar", entrada=peca, pasta=pasta, gui=gui,
-                        fechar_ao_terminar=args.fechar_ao_terminar, repo=RAIZ)
+                        fechar_ao_terminar=args.fechar_ao_terminar, repo=RAIZ, prepomax=exe_prepomax)
     caminho_trabalho = os.path.join(pasta, "trabalho.json")
     salvar(trabalho, caminho_trabalho)
 

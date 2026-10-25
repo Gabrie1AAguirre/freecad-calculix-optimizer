@@ -3,8 +3,10 @@
 Ferramenta que pega uma peça do FreeCAD já preparada com uma análise de tensões
 e procura, sozinha, **a versão mais leve da peça cujo Von Mises máximo fique
 abaixo de um limite** que você define. Ela muda as cotas que você liberou (um
-raio, uma espessura...), gera a malha, roda o CalculiX, mede a tensão e repete,
-mostrando tudo ao vivo na janela do FreeCAD.
+raio, uma espessura...), gera a malha, roda o CalculiX, mede a tensão e repete.
+Ao vivo, a janela do FreeCAD mostra a peça mudando de forma e o
+[PrePoMax](https://prepomax.fs.um.si/) mostra o resultado de cada análise, com
+as cores de Von Mises e a barra de tensão.
 
 Não usa IA: é otimização paramétrica clássica (algoritmo COBYLA do SciPy).
 
@@ -18,8 +20,16 @@ Não usa IA: é otimização paramétrica clássica (algoritmo COBYLA do SciPy).
 - Python 3 no sistema, só para rodar o comando `otimizar.py` (o cálculo em si
   roda dentro do Python do FreeCAD)
 
+- [PrePoMax](https://prepomax.fs.um.si/) (opcional, testado com a 2.6) para ver
+  as tensões. Sem ele, as cores aparecem na própria janela do FreeCAD.
+
 Se o FreeCAD não estiver em `C:\Program Files\FreeCAD 1.1`, use
 `--freecad "C:\caminho\FreeCAD 1.1\bin"` ou defina a variável de ambiente `FREECAD_BIN`.
+
+O PrePoMax é procurado em `Documentos`, `Área de Trabalho`, `Downloads` e
+`Arquivos de Programas` (pastas que começam com `PrePoMax`). Se estiver em
+outro lugar, use `--prepomax "C:\caminho\PrePoMax v2.6.0"` ou a variável
+`PREPOMAX_BIN`. Para não abri-lo, use `--sem-prepomax`.
 
 ## Rodando o exemplo
 
@@ -27,8 +37,8 @@ No terminal do VS Code, na pasta do projeto:
 
 ```powershell
 python otimizar.py exemplos\L_part.FCStd --checar          # confere se a peça está pronta
-python otimizar.py exemplos\L_part.FCStd                   # abre o FreeCAD e otimiza ao vivo
-python otimizar.py exemplos\L_part.FCStd --sem-interface   # mesma coisa, sem abrir a janela
+python otimizar.py exemplos\L_part.FCStd                   # otimiza ao vivo: FreeCAD + PrePoMax
+python otimizar.py exemplos\L_part.FCStd --sem-interface   # mesma coisa, sem abrir janelas
 ```
 
 O exemplo é uma cantoneira em L de aço (180 × 230 mm, 20 mm de espessura), presa
@@ -57,9 +67,20 @@ compensar o peso.
 
 ![Von Mises e massa por iteração](docs/imagens/grafico_exemplo.png)
 
-Enquanto isso, a janela do FreeCAD mostra a peça mudando e pintada pelo Von
-Mises. Cada iteração leva de 10 a 20 s. **Ctrl+C** no terminal para depois da
-iteração atual e guarda o melhor resultado até ali.
+Enquanto isso, a janela do FreeCAD mostra a peça mudando de forma e **uma única
+janela do PrePoMax** é atualizada com o resultado de cada iteração, já em
+**STRESS → MISES** (MPa), com a barra de cores e na vista isométrica. A troca leva
+uns 10 s; se a próxima iteração terminar antes, o PrePoMax pula direto para a mais
+nova. No fim, ele fica aberto com a melhor iteração. Cada iteração leva de 10 a 20 s.
+**Ctrl+C** no terminal para depois da iteração atual e guarda o melhor resultado até ali.
+
+Para atualizar a mesma janela, o programa usa o próprio PrePoMax (*File → Open*,
+escolhe as unidades mm/ton/s e gira a vista): durante a otimização, deixe a janela
+dele em paz. Ele é sempre fechado como pelo X; se você o fechar à força
+(Gerenciador de Tarefas), na próxima vez o PrePoMax pergunta se quer recuperar a
+sessão — o programa guarda uma cópia desse arquivo de recuperação em
+`resultados\...\trabalho\` e responde que não. O que aconteceu com a janela fica em
+`resultados\...\trabalho\prepomax_janela.log`.
 
 ### O que significa cada status
 
@@ -75,15 +96,14 @@ iteração atual e guarda o melhor resultado até ali.
 Cada execução cria `resultados\<peça>_<data-hora>\` com:
 
 - `<peça>_otimizada.FCStd` — a melhor versão, com os resultados FEM dentro;
+- `<peça>_otimizada.frd` — o resultado do CalculiX da melhor versão, para abrir
+  no PrePoMax quando quiser (*File → Open*);
 - `historico.csv` — todas as tentativas (abre direto no Excel em português);
 - `grafico.png` — tensão e massa por iteração;
 - `vista.png` — a peça final pintada pelo Von Mises (modo com janela);
 - `log.txt` — tudo o que apareceu no terminal.
 
 O arquivo original **nunca é alterado**.
-
-Se você usa o PrePoMax, pode abrir o arquivo `.frd` gerado pelo CalculiX (fica em
-`resultados\...\trabalho\ccx\`) para ver o último resultado com mais detalhe.
 
 ## Tutorial: preparando uma peça nova
 

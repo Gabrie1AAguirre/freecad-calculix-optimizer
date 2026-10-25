@@ -26,6 +26,12 @@ def _sem_janela_de_console():
         subprocess.Popen = original
 
 
+def arquivo_frd(pasta_trabalho):
+    """O .frd (resultado do CalculiX) da última análise rodada nessa pasta."""
+    arquivos = [os.path.join(pasta_trabalho, n) for n in os.listdir(pasta_trabalho) if n.lower().endswith(".frd")]
+    return max(arquivos, key=os.path.getmtime)
+
+
 def rodar_fea(modelo, pasta_trabalho):
     """Remalha, resolve e devolve o novo objeto de resultado (Fem::FemResultObject)."""
     with _sem_janela_de_console():

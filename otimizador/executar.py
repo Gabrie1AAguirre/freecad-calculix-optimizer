@@ -5,8 +5,10 @@ import traceback
 
 import FreeCAD as App
 
+from otimizador import prepomax
 from otimizador.avaliacao import OK, OK_VERIFICAR, Avaliador
 from otimizador.checagem import checar
+from otimizador.fea import arquivo_frd
 from otimizador.modelo import encontrar_modelo
 from otimizador.otimizacao import ErroLinhaDeBase, mensagem_parada, otimizar
 from otimizador.planilha import ler_configuracao
@@ -97,7 +99,11 @@ def otimizar_peca(trabalho, log):
     aliases = [p.alias for p in cfg.parametros]
     historico_csv = Historico(os.path.join(trabalho.pasta, "historico.csv"), aliases)
     destino = os.path.join(trabalho.pasta, "%s_otimizada.FCStd" % nome)
+    destino_frd = os.path.join(trabalho.pasta, "%s_otimizada.frd" % nome)
     caminho_parar = os.path.join(trabalho.pasta, NOME_PARAR)
+    vis = None
+    if trabalho.gui and trabalho.prepomax:
+        vis = prepomax.Visualizador([trabalho.prepomax], os.path.join(trabalho.pasta, "trabalho", "prepomax"))
 
     log.escrever("Otimizando %s: menor massa com Von Mises ≤ %.0f MPa, até %d iterações."
                  % (os.path.basename(trabalho.entrada), cfg.tensao_limite, cfg.max_iteracoes))
@@ -112,13 +118,18 @@ def otimizar_peca(trabalho, log):
     def ao_iterar(it, eh_melhor):
         historico_csv.adicionar(it)
         log.escrever(linha_terminal(it, aliases, eh_melhor))
-        if trabalho.gui:
-            gui.mostrar(doc, av.ultimo_resultado, enquadrar=it.numero == 1)
         if eh_melhor and it.valida:
             # saveCopy não renomeia o documento; apagar antes evita o backup .FCBak.
             if os.path.exists(destino):
                 os.remove(destino)
             doc.saveCopy(destino)
+            prepomax.tensao_primeiro(arquivo_frd(av.pasta_trabalho), destino_frd)
+        if vis:
+            if av.ultimo_resultado is not None:
+                vis.mostrar(arquivo_frd(av.pasta_trabalho))
+            gui.mostrar_peca(doc, av.modelo.corpo, enquadrar=it.numero == 1)
+        elif trabalho.gui:
+            gui.mostrar(doc, av.ultimo_resultado, enquadrar=it.numero == 1)
 
     try:
         melhor, historico, motivo = otimizar(av.avaliar, cfg, ao_iterar, lambda: os.path.exists(caminho_parar))
@@ -138,4 +149,12 @@ def otimizar_peca(trabalho, log):
         resultados = [o for o in final.Objects if o.isDerivedFrom("Fem::FemResultObject")]
         gui.mostrar(final, resultados[-1] if resultados else None, enquadrar=True)
         gui.salvar_imagem(final, os.path.join(trabalho.pasta, "vista.png"))
+        if vis:
+            gui.mostrar_peca(final, encontrar_modelo(final).corpo, enquadrar=True)
+    if vis:
+        if os.path.exists(destino_frd):
+            vis.mostrar_arquivo(destino_frd)
+            log.escrever("Resultado da melhor iteração aberto no PrePoMax (STRESS → MISES, em MPa).")
+        else:
+            vis.fechar()
     return 0 if melhor.status in (OK, OK_VERIFICAR) else 2

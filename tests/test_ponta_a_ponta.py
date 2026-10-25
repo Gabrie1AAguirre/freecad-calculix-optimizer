@@ -9,6 +9,7 @@ import unittest
 
 import FreeCAD as App
 
+from otimizador import prepomax
 from tests.util import EXEMPLO_L, ORIGINAL_L, RAIZ, sha256
 
 LANCADOR = os.path.join(RAIZ, "otimizar.py")
@@ -17,6 +18,23 @@ PARAMETROS = {"raio_canto": (1, 20), "espessura_vertical": (20, 45), "espessura_
 
 def _numero(texto):
     return float(texto.replace(",", ".")) if texto else None
+
+
+def _processos_prepomax(pasta):
+    """(pid, linha de comando) dos PrePoMax abertos com um arquivo dessa pasta."""
+    script = ("Get-CimInstance Win32_Process -Filter \"Name='PrePoMax.exe'\" | "
+              "ForEach-Object { \"$($_.ProcessId)|$($_.CommandLine)\" }")
+    saida = subprocess.run(["powershell", "-NoProfile", "-Command", script], capture_output=True,
+                           encoding="utf-8", errors="replace").stdout
+    linhas = [l.split("|", 1) for l in saida.splitlines() if "|" in l]
+    return [(int(pid), cmd) for pid, cmd in linhas if os.path.normcase(pasta) in os.path.normcase(cmd)]
+
+
+def _fechar_prepomax(pasta):
+    # Pelo X: fechado à força, o PrePoMax deixaria um arquivo de recuperação.
+    for pid, _ in _processos_prepomax(pasta):
+        if not prepomax.fechar_pelo_x(pid):
+            subprocess.run(["taskkill", "/F", "/PID", str(pid)], capture_output=True)
 
 
 class TestPontaAPonta(unittest.TestCase):
@@ -56,8 +74,11 @@ class TestPontaAPonta(unittest.TestCase):
         antes = sha256(peca)
         codigo, saida = self._rodar(peca, "--sem-interface", "--resultados", self.resultados)
         self.assertIn(codigo, (0, 2), saida)
-        for nome in ("L_part_otimizada.FCStd", "historico.csv", "grafico.png", "log.txt"):
+        for nome in ("L_part_otimizada.FCStd", "L_part_otimizada.frd", "historico.csv", "grafico.png", "log.txt"):
             self.assertTrue(os.path.exists(os.path.join(self.resultados, nome)), nome)
+        with open(os.path.join(self.resultados, "L_part_otimizada.frd"), encoding="latin-1") as f:
+            blocos = [l.split()[1] for l in f if l.strip().startswith("-4")]
+        self.assertEqual(blocos[0], "STRESS")  # o PrePoMax abre direto no Von Mises
         linhas = self._historico()
         self.assertEqual(len(linhas), 6)
         validas = [l for l in linhas if l["von_mises_mpa"]]
@@ -93,11 +114,30 @@ class TestPontaAPonta(unittest.TestCase):
 
     def test_gui_fumaca(self):
         peca = self._peca(2)
-        codigo, saida = self._rodar(peca, "--resultados", self.resultados, "--fechar-ao-terminar")
+        codigo, saida = self._rodar(peca, "--resultados", self.resultados, "--fechar-ao-terminar", "--sem-prepomax")
         self.assertIn(codigo, (0, 2), saida)
         self.assertEqual(len(self._historico()), 2)
         self.assertTrue(os.path.exists(os.path.join(self.resultados, "vista.png")))
         self._sem_backups()
+
+    @unittest.skipUnless(prepomax.encontrar(), "PrePoMax não instalado")
+    def test_gui_com_prepomax(self):
+        peca = self._peca(2)
+        self.addCleanup(_fechar_prepomax, self.resultados)
+        codigo, saida = self._rodar(peca, "--resultados", self.resultados, "--fechar-ao-terminar")
+        self.assertIn(codigo, (0, 2), saida)
+        self.assertNotIn("Não encontrei o PrePoMax", saida)
+        # Uma única janela, atualizada a cada iteração, fica aberta no fim com a melhor;
+        # as cópias das iterações foram apagadas.
+        self.assertEqual(len(_processos_prepomax(self.resultados)), 1)
+        self.assertEqual(os.listdir(os.path.join(self.resultados, "trabalho", "prepomax")), [])
+        self.assertTrue(os.path.exists(os.path.join(self.resultados, "L_part_otimizada.frd")))
+        self.assertIn("aberto no PrePoMax", saida)
+        with open(os.path.join(self.resultados, "trabalho", "prepomax_janela.log"), encoding="utf-8") as f:
+            log_janela = f.read()
+        self.assertNotIn("falhou", log_janela)  # todas as trocas na mesma janela deram certo
+        _fechar_prepomax(self.resultados)
+        self.assertFalse(os.path.exists(prepomax.arquivo_recuperacao(prepomax.encontrar())))
 
 
 if __name__ == "__main__":

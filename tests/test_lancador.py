@@ -42,6 +42,20 @@ class TestLancador(unittest.TestCase):
         opcoes = otimizar._opcoes_processo()
         self.assertTrue(opcoes["creationflags"] & subprocess.CREATE_NEW_PROCESS_GROUP)
 
+    def test_escolher_prepomax(self):
+        pasta = tempfile.mkdtemp()
+        exe = os.path.join(pasta, "PrePoMax.exe")
+        open(exe, "w").close()
+        self.assertEqual(otimizar._escolher_prepomax(pasta, sem_prepomax=False, gui=True), (exe, None))
+        # Sem janela (--sem-interface) ou com --sem-prepomax, não abre o PrePoMax.
+        self.assertEqual(otimizar._escolher_prepomax(pasta, sem_prepomax=True, gui=True), (None, None))
+        self.assertEqual(otimizar._escolher_prepomax(pasta, sem_prepomax=False, gui=False), (None, None))
+
+    def test_prepomax_nao_encontrado_avisa(self):
+        exe, aviso = otimizar._escolher_prepomax(tempfile.mkdtemp(), sem_prepomax=False, gui=True)
+        self.assertIsNone(exe)
+        self.assertIn("--prepomax", aviso)
+
     def test_volta_ao_terminal_sem_esperar_fechar_freecad(self):
         # Com a janela aberta o FreeCAD continua rodando; o lançador deve voltar
         # assim que o log marcar o fim.

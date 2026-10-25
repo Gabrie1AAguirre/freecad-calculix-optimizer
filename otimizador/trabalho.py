@@ -17,6 +17,7 @@ class Trabalho:
     gui: bool
     fechar_ao_terminar: bool
     repo: str
+    prepomax: str = None  # PrePoMax.exe para mostrar os resultados; None mostra as cores no FreeCAD
 
 
 def salvar(trabalho, caminho):
