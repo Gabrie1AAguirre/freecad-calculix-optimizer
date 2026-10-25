@@ -13,14 +13,15 @@ def manter_janela_salva():
     import FreeCAD as App
     from PySide import QtCore
     grupo = App.ParamGet("User parameter:BaseApp/Preferences/MainWindow")
-    geometria = grupo.GetString("Geometry") if "Geometry" in grupo.GetStrings() else None
+    textos = {n: grupo.GetString(n) for n in ("Geometry", "MainWindowState") if n in grupo.GetStrings()}
     maximizada = grupo.GetBool("Maximized") if "Maximized" in grupo.GetBools() else None
 
     def restaurar():
-        if geometria is None:
-            grupo.RemString("Geometry")
-        else:
-            grupo.SetString("Geometry", geometria)
+        for nome in ("Geometry", "MainWindowState"):  # tamanho da janela e dos painéis
+            if nome in textos:
+                grupo.SetString(nome, textos[nome])
+            else:
+                grupo.RemString(nome)
         if maximizada is None:
             grupo.RemBool("Maximized")
         else:
@@ -29,13 +30,21 @@ def manter_janela_salva():
 
 
 def metade_esquerda():
-    """Tela dividida com o PrePoMax: o FreeCAD fica com a metade esquerda."""
+    """Tela dividida com o PrePoMax: o FreeCAD fica com a metade esquerda, com o
+    painel Model/Tasks estreito para sobrar espaço para a peça."""
+    from PySide import QtCore, QtWidgets
     from otimizador import janelas
     janela = Gui.getMainWindow()
     janela.showNormal()
     atualizar()
     janelas.posicionar(int(janela.winId()), janelas.ESQUERDA)
     atualizar()
+    paineis = [d for d in janela.findChildren(QtWidgets.QDockWidget) if d.isVisible() and not d.isFloating()
+               and janela.dockWidgetArea(d) in (QtCore.Qt.LeftDockWidgetArea, QtCore.Qt.RightDockWidgetArea)]
+    if paineis:
+        largura = janela.width() // janelas.PROPORCAO_PAINEL
+        janela.resizeDocks(paineis, [largura] * len(paineis), QtCore.Qt.Horizontal)
+        atualizar()
 
 
 def mostrar(doc, resultado, enquadrar=False):

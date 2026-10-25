@@ -5,6 +5,7 @@ import ctypes
 import os
 
 ESQUERDA, DIREITA = "esquerda", "direita"
+PROPORCAO_PAINEL = 4  # na tela dividida, o painel Model/Tasks do FreeCAD fica com 1/4 da janela
 
 
 def metade(area, lado, borda=(0, 0, 0, 0)):
