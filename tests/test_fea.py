@@ -1,4 +1,5 @@
 import os
+import subprocess
 import tempfile
 import unittest
 
@@ -23,6 +24,23 @@ class TestFea(unittest.TestCase):
         pasta = os.path.join(tempfile.mkdtemp(), "nova", "ccx")
         rodar_fea(m, pasta)
         self.assertTrue(any(n.endswith(".inp") for n in os.listdir(pasta)))
+
+    def test_nao_abre_janela_de_console(self):
+        # O FreeCAD inicia o CalculiX sem esconder a janela: no Windows aparece um cmd a cada iteração.
+        chamadas = []
+        original = subprocess.Popen
+
+        def registrar(*args, **kwargs):
+            chamadas.append(kwargs)
+            return original(*args, **kwargs)
+
+        subprocess.Popen = registrar
+        self.addCleanup(setattr, subprocess, "Popen", original)
+        m = encontrar_modelo(abrir_copia(EXEMPLO_L, self))
+        rodar_fea(m, tempfile.mkdtemp())
+        self.assertTrue(chamadas)
+        for kwargs in chamadas:
+            self.assertTrue(kwargs.get("creationflags", 0) & subprocess.CREATE_NO_WINDOW, kwargs)
 
     def test_falha_vira_mensagem(self):
         doc = abrir_copia(EXEMPLO_L, self)
