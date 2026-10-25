@@ -31,3 +31,21 @@ def abrir_copia(caminho, testcase):
 def sha256(caminho):
     with open(caminho, "rb") as f:
         return hashlib.sha256(f.read()).hexdigest()
+
+
+def parte_visivel(pid):
+    """(x, y, largura, altura) visível da maior janela do processo."""
+    import ctypes
+    from ctypes import wintypes
+    user32, achadas = ctypes.windll.user32, []
+
+    def anotar(h, _):
+        dono = wintypes.DWORD()
+        user32.GetWindowThreadProcessId(h, ctypes.byref(dono))
+        if dono.value == pid and user32.IsWindowVisible(h):
+            r = wintypes.RECT()
+            ctypes.windll.dwmapi.DwmGetWindowAttribute(wintypes.HWND(h), 9, ctypes.byref(r), ctypes.sizeof(r))
+            achadas.append((r.left, r.top, r.right - r.left, r.bottom - r.top))
+        return True
+    user32.EnumWindows(ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)(anotar), 0)
+    return max(achadas, key=lambda r: r[2] * r[3], default=None)

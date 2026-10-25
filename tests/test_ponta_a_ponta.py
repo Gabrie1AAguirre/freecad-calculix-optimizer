@@ -1,16 +1,18 @@
 """Testes lentos: rodam o otimizar.py de verdade (FreeCAD + Gmsh + CalculiX)."""
 import csv
 import os
+import re
 import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 
 import FreeCAD as App
 
-from otimizador import prepomax
-from tests.util import EXEMPLO_L, ORIGINAL_L, RAIZ, sha256
+from otimizador import janelas, prepomax
+from tests.util import EXEMPLO_L, ORIGINAL_L, RAIZ, parte_visivel, sha256
 
 LANCADOR = os.path.join(RAIZ, "otimizar.py")
 PARAMETROS = {"raio_canto": (1, 20), "espessura_vertical": (20, 45), "espessura_horizontal": (20, 45)}
@@ -28,6 +30,21 @@ def _processos_prepomax(pasta):
                            encoding="utf-8", errors="replace").stdout
     linhas = [l.split("|", 1) for l in saida.splitlines() if "|" in l]
     return [(int(pid), cmd) for pid, cmd in linhas if os.path.normcase(pasta) in os.path.normcase(cmd)]
+
+
+def _freecad_filho(pid):
+    """PID do FreeCAD aberto pelo lançador."""
+    script = ("Get-CimInstance Win32_Process -Filter \"ParentProcessId=%d AND Name='freecad.exe'\" | "
+              "ForEach-Object { $_.ProcessId }" % pid)
+    saida = subprocess.run(["powershell", "-NoProfile", "-Command", script], capture_output=True, text=True).stdout
+    return int(saida.split()[0])
+
+
+def _janela_salva_do_freecad():
+    """Tamanho e estado da janela que o FreeCAD grava ao fechar (user.cfg)."""
+    with open(os.path.join(App.getUserConfigDir(), "user.cfg"), encoding="utf-8") as f:
+        texto = f.read()
+    return re.findall(r'<FC\w+ Name="(?:Geometry|Maximized)"[^>]*>(?:[^<]*</FC\w+>)?', texto)
 
 
 def _fechar_prepomax(pasta):
@@ -124,8 +141,30 @@ class TestPontaAPonta(unittest.TestCase):
     def test_gui_com_prepomax(self):
         peca = self._peca(2)
         self.addCleanup(_fechar_prepomax, self.resultados)
-        codigo, saida = self._rodar(peca, "--resultados", self.resultados, "--fechar-ao-terminar")
-        self.assertIn(codigo, (0, 2), saida)
+        janela_salva = _janela_salva_do_freecad()
+        lancador = subprocess.Popen([sys.executable, LANCADOR, peca, "--resultados", self.resultados,
+                                     "--fechar-ao-terminar"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                    encoding="utf-8", errors="replace")
+        self.addCleanup(lambda: lancador.poll() is None and lancador.kill())
+        # Tela dividida, medida enquanto otimiza (no fim o FreeCAD fecha): ele à esquerda.
+        freecad, pid_freecad, fim = None, None, time.time() + 600
+        while freecad is None and lancador.poll() is None and time.time() < fim:
+            time.sleep(1)
+            try:
+                with open(os.path.join(self.resultados, "log.txt"), encoding="utf-8") as f:
+                    iterou = re.search(r"^\s+1\s+\d", f.read(), re.M)
+            except OSError:
+                iterou = None
+            if iterou:
+                pid_freecad = _freecad_filho(lancador.pid)
+                freecad = parte_visivel(pid_freecad)
+        saida = lancador.communicate(timeout=900)[0]
+        while pid_freecad and prepomax._processo_vivo(pid_freecad) and time.time() < fim:
+            time.sleep(0.5)  # o terminal volta antes de o FreeCAD fechar (e gravar a configuração)
+        self.assertIn(lancador.returncode, (0, 2), saida)
+        self.assertEqual(freecad, janelas.metade(janelas.area_de_trabalho(), janelas.ESQUERDA))
+        # A tela dividida é só desta vez: o FreeCAD do usuário continua abrindo como antes.
+        self.assertEqual(_janela_salva_do_freecad(), janela_salva)
         self.assertNotIn("Não encontrei o PrePoMax", saida)
         # Uma única janela, atualizada a cada iteração, fica aberta no fim com a melhor;
         # as cópias das iterações foram apagadas.

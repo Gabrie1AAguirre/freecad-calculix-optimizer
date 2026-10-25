@@ -67,11 +67,14 @@ compensar o peso.
 
 ![Von Mises e massa por iteração](docs/imagens/grafico_exemplo.png)
 
-Enquanto isso, a janela do FreeCAD mostra a peça mudando de forma e **uma única
-janela do PrePoMax** é atualizada com o resultado de cada iteração, já em
+Enquanto isso, a tela fica dividida: **à esquerda o FreeCAD**, mostrando a peça
+mudando de forma, e **à direita uma única janela do PrePoMax**, atualizada com o
+resultado de cada iteração, já em
 **STRESS → MISES** (MPa), com a barra de cores e na vista isométrica. A troca leva
 uns 10 s; se a próxima iteração terminar antes, o PrePoMax pula direto para a mais
 nova. No fim, ele fica aberto com a melhor iteração. Cada iteração leva de 10 a 20 s.
+A divisão vale só para essa execução: depois, o FreeCAD volta a abrir do tamanho de
+sempre.
 **Ctrl+C** no terminal para depois da iteração atual e guarda o melhor resultado até ali.
 
 Para atualizar a mesma janela, o programa usa o próprio PrePoMax (*File → Open*,

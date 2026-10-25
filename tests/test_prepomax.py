@@ -5,7 +5,8 @@ import tempfile
 import time
 import unittest
 
-from otimizador import prepomax
+from otimizador import janelas, prepomax
+from tests.util import parte_visivel
 
 FRD = """    1C
     2C                             2                                     1
@@ -179,11 +180,14 @@ class TestVisualizadorPrePoMax(_Base):
         vis.esperar()
         self.assertTrue(vis.ultimo_ajuste_ok, "não girou para a vista isométrica")
         pid = vis.processo.pid
+        # Tela dividida: o FreeCAD fica com a metade esquerda.
+        self.assertEqual(parte_visivel(pid), janelas.metade(janelas.area_de_trabalho(), janelas.DIREITA))
 
         vis.mostrar(self.frd)
         vis.esperar()
         self.assertTrue(vis.ultimo_ajuste_ok, "não abriu o novo resultado na janela")
         self.assertEqual(vis.processo.pid, pid)       # mesma janela
+        self.assertEqual(parte_visivel(pid), janelas.metade(janelas.area_de_trabalho(), janelas.DIREITA))
         self.assertIsNone(vis.processo.poll())
         self.assertEqual(len(os.listdir(self.copias)), 1)
 

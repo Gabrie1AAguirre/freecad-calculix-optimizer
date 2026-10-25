@@ -39,6 +39,9 @@ class Log:
 def iniciar(caminho_trabalho):
     trabalho = carregar(caminho_trabalho)
     if trabalho.gui:
+        if trabalho.prepomax:
+            from otimizador import gui
+            gui.manter_janela_salva()  # a tela dividida não fica gravada no FreeCAD
         # Deixa a janela abrir antes de começar, para a peça aparecer ao vivo.
         from PySide import QtCore
         QtCore.QTimer.singleShot(ESPERA_GUI_MS, lambda: executar(trabalho))
@@ -104,6 +107,7 @@ def otimizar_peca(trabalho, log):
     vis = None
     if trabalho.gui and trabalho.prepomax:
         vis = prepomax.Visualizador([trabalho.prepomax], os.path.join(trabalho.pasta, "trabalho", "prepomax"))
+        gui.metade_esquerda()  # o PrePoMax fica com a direita
 
     log.escrever("Otimizando %s: menor massa com Von Mises ≤ %.0f MPa, até %d iterações."
                  % (os.path.basename(trabalho.entrada), cfg.tensao_limite, cfg.max_iteracoes))

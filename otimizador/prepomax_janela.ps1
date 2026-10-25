@@ -1,7 +1,8 @@
 <#
 Comanda uma janela do PrePoMax já aberta (chamado por otimizador/prepomax.py).
 
-  -Id <pid>                    espera o resultado carregar e gira para a vista isométrica
+  -Id <pid>                    põe a janela na metade direita da tela, espera o resultado
+                               carregar e gira para a vista isométrica
   -Id <pid> -Arquivo <x.frd>   abre outro resultado na MESMA janela (File > Open) e gira
 
 Os cliques são mensagens do Windows enviadas sem esperar resposta: um clique que
@@ -97,6 +98,30 @@ public static class PpmJanela {
     }
 
     public static void ClicarBotao(IntPtr botao) { PostMessage(botao, 0x00F5 /*BM_CLICK*/, IntPtr.Zero, IntPtr.Zero); }
+
+    // Tela dividida: metade direita da tela principal (o FreeCAD fica com a esquerda),
+    // como otimizador/janelas.py: a parte visível ocupa a metade, sem a borda invisível.
+    public struct Ret { public int Esq, Topo, Dir, Base; }
+    [DllImport("user32.dll")] static extern bool SystemParametersInfo(uint acao, uint p, ref Ret r, uint f);
+    [DllImport("user32.dll")] static extern bool GetWindowRect(IntPtr h, out Ret r);
+    [DllImport("user32.dll")] static extern bool IsZoomed(IntPtr h);
+    [DllImport("user32.dll")] static extern bool IsIconic(IntPtr h);
+    [DllImport("user32.dll")] static extern bool ShowWindow(IntPtr h, int modo);
+    [DllImport("user32.dll")] static extern bool SetWindowPos(IntPtr h, IntPtr depois, int x, int y, int l, int a, uint f);
+    [DllImport("dwmapi.dll")] static extern int DwmGetWindowAttribute(IntPtr h, int atributo, out Ret r, int tamanho);
+    public static bool MetadeDireita(IntPtr h) {
+        if (IsZoomed(h) || IsIconic(h)) ShowWindow(h, 9 /*SW_RESTORE*/);
+        var area = new Ret();
+        SystemParametersInfo(0x0030 /*SPI_GETWORKAREA*/, 0, ref area, 0);
+        Ret fora, dentro;
+        GetWindowRect(h, out fora);
+        if (DwmGetWindowAttribute(h, 9 /*EXTENDED_FRAME_BOUNDS*/, out dentro, Marshal.SizeOf(typeof(Ret))) != 0) dentro = fora;
+        int meio = (area.Esq + area.Dir) / 2;
+        int x = meio - (dentro.Esq - fora.Esq), y = area.Topo - (dentro.Topo - fora.Topo);
+        int l = area.Dir - meio + (dentro.Esq - fora.Esq) + (fora.Dir - dentro.Dir);
+        int a = area.Base - area.Topo + (dentro.Topo - fora.Topo) + (fora.Base - dentro.Base);
+        return SetWindowPos(h, IntPtr.Zero, x, y, l, a, 0x0004 /*SWP_NOZORDER*/ | 0x0010 /*SWP_NOACTIVATE*/);
+    }
 
     // "A recovery file from a previous PrePoMax session exists...": responde Cancel (não recuperar).
     // O Python já guardou uma cópia do arquivo de recuperação.
@@ -244,6 +269,9 @@ function ResponderUnidades($janela) {
 
 $principal = Aguardar { $h = (Get-Process -Id $Id).MainWindowHandle; if ($h -ne 0) { $h } } "a janela do PrePoMax"
 $raiz = $A::FromHandle($principal)
+# Janela recém-aberta: vai para a metade direita da tela (e de novo antes de enquadrar,
+# caso o PrePoMax tenha restaurado o tamanho dele enquanto carregava).
+if (-not $Arquivo) { [PpmJanela]::MetadeDireita($principal) | Out-Null }
 
 if ($Arquivo) {
     # File > Open pelo botão da barra. O clique só volta quando o diálogo fecha,
@@ -263,6 +291,7 @@ Aguardar {
     if ($pergunta) { ResponderUnidades $pergunta; return $false }
     $s = Status $raiz; $s -match "Ready" -and $s -match "Unit system: mm"
 } "o resultado carregar" | Out-Null
+if (-not $Arquivo) { [PpmJanela]::MetadeDireita($principal) | Out-Null }
 Start-Sleep -Milliseconds 500
 Invocar $raiz "Isometric view"
 Invocar $raiz "Zoom to fit"

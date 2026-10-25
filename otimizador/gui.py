@@ -6,6 +6,38 @@ def atualizar():
     Gui.updateGui()
 
 
+def manter_janela_salva():
+    """O FreeCAD grava o tamanho da janela ao fechar: devolve o que estava gravado,
+    para a tela dividida valer só desta vez. Chamar logo ao abrir, antes de o
+    FreeCAD regravar esses valores."""
+    import FreeCAD as App
+    from PySide import QtCore
+    grupo = App.ParamGet("User parameter:BaseApp/Preferences/MainWindow")
+    geometria = grupo.GetString("Geometry") if "Geometry" in grupo.GetStrings() else None
+    maximizada = grupo.GetBool("Maximized") if "Maximized" in grupo.GetBools() else None
+
+    def restaurar():
+        if geometria is None:
+            grupo.RemString("Geometry")
+        else:
+            grupo.SetString("Geometry", geometria)
+        if maximizada is None:
+            grupo.RemBool("Maximized")
+        else:
+            grupo.SetBool("Maximized", maximizada)
+    QtCore.QCoreApplication.instance().aboutToQuit.connect(restaurar)
+
+
+def metade_esquerda():
+    """Tela dividida com o PrePoMax: o FreeCAD fica com a metade esquerda."""
+    from otimizador import janelas
+    janela = Gui.getMainWindow()
+    janela.showNormal()
+    atualizar()
+    janelas.posicionar(int(janela.winId()), janelas.ESQUERDA)
+    atualizar()
+
+
 def mostrar(doc, resultado, enquadrar=False):
     """Esconde o resto e pinta a malha do resultado com o Von Mises."""
     if resultado is None:
