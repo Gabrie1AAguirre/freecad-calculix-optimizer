@@ -128,7 +128,7 @@ São dois passos no FreeCAD, feitos uma vez por peça.
 8. Rode uma vez pelo próprio FreeCAD (duplo clique no solver → *Run*) para ver
    se está tudo certo.
 
-> 📷 TODO: print da árvore com Analysis, material, fixação, força e malha.
+![Árvore do exemplo: a Analysis com fixação, força, material, malha e solver CalculiX; na vista, a peça com a base presa e a força no topo](docs/imagens/arvore_fem.png)
 
 ### 2. A planilha `Parametros`
 
@@ -160,7 +160,9 @@ Exemplo (a planilha da peça em L):
 | 7 | Von Mises máximo permitido (MPa) | `tensao_limite` = 250 | | |
 | 8 | Máximo de iterações | `max_iteracoes` = 20 | | |
 
-> 📷 TODO: print da planilha com os aliases.
+![Planilha Parametros do exemplo: com a célula B2 selecionada, o campo Alias mostra raio_canto](docs/imagens/planilha_parametros.png)
+
+Na planilha, selecione uma célula para ver o alias dela no campo **Alias**, no alto.
 
 ### 3. Ligar as cotas à planilha
 
@@ -168,7 +170,11 @@ No Sketcher, dê duplo clique numa cota; no campo do valor clique no botão
 **f(x)** e digite `Parametros.raio_canto`. A cota passa a obedecer à planilha.
 Funciona igual para o comprimento de um Pad ou qualquer outro campo numérico.
 
-> 📷 TODO: print do diálogo da cota com a expressão.
+![Esboço da peça em L: as cotas ligadas à planilha aparecem com f(x), na lista e no desenho](docs/imagens/esboco_cotas_fx.png)
+
+No diálogo da cota, o botão **f(x)** abre o editor da expressão:
+
+![Diálogo do raio com o editor de expressão mostrando Parametros.raio_canto](docs/imagens/cota_expressao.png)
 
 **Raio de canto: use o fillet do Sketcher**, não o Fillet do PartDesign aplicado
 na aresta. O do PartDesign depende do "nome" da aresta, que pode mudar quando
