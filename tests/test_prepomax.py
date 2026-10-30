@@ -5,8 +5,8 @@ import tempfile
 import time
 import unittest
 
-from otimizador import janelas, prepomax
-from tests.util import parte_visivel
+from optimizer import prepomax, split_screen
+from tests.util import visible_part
 
 FRD = """    1C
     2C                             2                                     1
@@ -23,192 +23,192 @@ FRD = """    1C
  9999
 """
 
-# Conteúdo qualquer no lugar do arquivo de recuperação (history.pmh) do PrePoMax.
-HISTORICO_FALSO = b"historico de teste do otimizador"
+# Arbitrary content in place of PrePoMax's recovery file (history.pmh).
+FAKE_HISTORY = b"optimizer test history"
 
-# Programa falso no lugar do PrePoMax: grava os argumentos e fica aberto.
-FALSO = """import os, sys, time
+# Fake program in place of PrePoMax: records its arguments and stays open.
+FAKE = """import os, sys, time
 open(sys.argv[1], "w").write("\\n".join(sys.argv[2:] + [os.getcwd()]))
 time.sleep(120)
 """
 
 
-def _blocos(texto):
-    return [l.split()[1] for l in texto.splitlines() if l.strip().startswith("-4")]
+def _blocks(text):
+    return [l.split()[1] for l in text.splitlines() if l.strip().startswith("-4")]
 
 
 class TestFrd(unittest.TestCase):
     def setUp(self):
-        self.pasta = tempfile.mkdtemp()
-        self.addCleanup(shutil.rmtree, self.pasta, True)
-        self.origem = os.path.join(self.pasta, "a.frd")
+        self.folder = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.folder, True)
+        self.source = os.path.join(self.folder, "a.frd")
 
-    def test_tensao_vem_primeiro(self):
-        # O PrePoMax abre mostrando o primeiro bloco do .frd: assim abre direto no Von Mises.
-        with open(self.origem, "w") as f:
+    def test_stress_comes_first(self):
+        # PrePoMax opens showing the first block of the .frd: this way it opens on the Von Mises.
+        with open(self.source, "w") as f:
             f.write(FRD)
-        destino = os.path.join(self.pasta, "b.frd")
-        prepomax.tensao_primeiro(self.origem, destino)
-        with open(destino) as f:
-            texto = f.read()
-        self.assertEqual(_blocos(texto), ["STRESS", "DISP"])
-        self.assertEqual(sorted(texto.splitlines()), sorted(FRD.splitlines()))
-        self.assertTrue(texto.startswith("    1C\n"))
-        self.assertEqual(texto.splitlines()[-1].strip(), "9999")
+        destination = os.path.join(self.folder, "b.frd")
+        prepomax.stress_first(self.source, destination)
+        with open(destination) as f:
+            text = f.read()
+        self.assertEqual(_blocks(text), ["STRESS", "DISP"])
+        self.assertEqual(sorted(text.splitlines()), sorted(FRD.splitlines()))
+        self.assertTrue(text.startswith("    1C\n"))
+        self.assertEqual(text.splitlines()[-1].strip(), "9999")
 
-    def test_sem_tensao_copia_igual(self):
-        sem_tensao = FRD.replace("STRESS", "TOSTRAIN")
-        with open(self.origem, "w") as f:
-            f.write(sem_tensao)
-        destino = os.path.join(self.pasta, "b.frd")
-        prepomax.tensao_primeiro(self.origem, destino)
-        with open(destino) as f:
-            self.assertEqual(f.read(), sem_tensao)
+    def test_without_stress_copies_unchanged(self):
+        without_stress = FRD.replace("STRESS", "TOSTRAIN")
+        with open(self.source, "w") as f:
+            f.write(without_stress)
+        destination = os.path.join(self.folder, "b.frd")
+        prepomax.stress_first(self.source, destination)
+        with open(destination) as f:
+            self.assertEqual(f.read(), without_stress)
 
 
-class TestEncontrar(unittest.TestCase):
+class TestFind(unittest.TestCase):
     def setUp(self):
         self.base = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, self.base, True)
 
-    def _instalar(self, nome):
-        pasta = os.path.join(self.base, nome)
-        os.makedirs(pasta)
-        open(os.path.join(pasta, "PrePoMax.exe"), "w").close()
-        return pasta
+    def _install(self, name):
+        folder = os.path.join(self.base, name)
+        os.makedirs(folder)
+        open(os.path.join(folder, "PrePoMax.exe"), "w").close()
+        return folder
 
-    def test_pasta_informada(self):
-        pasta = self._instalar("qualquer")
-        self.assertEqual(prepomax.encontrar(pasta, ambiente={}, locais=[]), os.path.join(pasta, "PrePoMax.exe"))
+    def test_given_folder(self):
+        folder = self._install("anything")
+        self.assertEqual(prepomax.find(folder, environment={}, locations=[]), os.path.join(folder, "PrePoMax.exe"))
 
-    def test_pasta_informada_sem_exe(self):
-        self.assertIsNone(prepomax.encontrar(self.base, ambiente={}, locais=[]))
+    def test_given_folder_without_exe(self):
+        self.assertIsNone(prepomax.find(self.base, environment={}, locations=[]))
 
-    def test_variavel_de_ambiente(self):
-        pasta = self._instalar("env")
-        self.assertEqual(prepomax.encontrar(None, ambiente={"PREPOMAX_BIN": pasta}, locais=[]),
-                         os.path.join(pasta, "PrePoMax.exe"))
+    def test_environment_variable(self):
+        folder = self._install("env")
+        self.assertEqual(prepomax.find(None, environment={"PREPOMAX_BIN": folder}, locations=[]),
+                         os.path.join(folder, "PrePoMax.exe"))
 
-    def test_procura_versao_mais_nova(self):
-        self._instalar("PrePoMax v2.5.10")
-        self._instalar("PrePoMax v2.6.0")
-        self._instalar("PrePoMax v2.10.1")
-        achado = prepomax.encontrar(None, ambiente={}, locais=[os.path.join(self.base, "PrePoMax*")])
-        self.assertEqual(achado, os.path.join(self.base, "PrePoMax v2.10.1", "PrePoMax.exe"))
+    def test_finds_newest_version(self):
+        self._install("PrePoMax v2.5.10")
+        self._install("PrePoMax v2.6.0")
+        self._install("PrePoMax v2.10.1")
+        found = prepomax.find(None, environment={}, locations=[os.path.join(self.base, "PrePoMax*")])
+        self.assertEqual(found, os.path.join(self.base, "PrePoMax v2.10.1", "PrePoMax.exe"))
 
-    def test_nao_encontrado(self):
-        self.assertIsNone(prepomax.encontrar(None, ambiente={}, locais=[os.path.join(self.base, "PrePoMax*")]))
+    def test_not_found(self):
+        self.assertIsNone(prepomax.find(None, environment={}, locations=[os.path.join(self.base, "PrePoMax*")]))
 
 
 class _Base(unittest.TestCase):
     def setUp(self):
-        self.pasta = tempfile.mkdtemp()
-        self.addCleanup(shutil.rmtree, self.pasta, True)
-        self.copias = os.path.join(self.pasta, "copias")
-        self.frd = os.path.join(self.pasta, "ccx.frd")
+        self.folder = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.folder, True)
+        self.copies = os.path.join(self.folder, "copies")
+        self.frd = os.path.join(self.folder, "ccx.frd")
         with open(self.frd, "w") as f:
             f.write(FRD)
 
 
-class TestVisualizadorSemJanela(_Base):
-    """Com um programa falso no lugar do PrePoMax (sem janela para comandar)."""
+class TestViewerWithoutWindow(_Base):
+    """With a fake program in place of PrePoMax (no window to drive)."""
 
     def setUp(self):
         super().setUp()
-        self.falso = os.path.join(self.pasta, "falso.py")
-        with open(self.falso, "w") as f:
-            f.write(FALSO)
-        self.registro = os.path.join(self.pasta, "registro.txt")
-        self.vis = prepomax.Visualizador([sys.executable, self.falso, self.registro], self.copias, comandar_janela=False)
-        self.addCleanup(self.vis.fechar)
+        self.fake = os.path.join(self.folder, "fake.py")
+        with open(self.fake, "w") as f:
+            f.write(FAKE)
+        self.record = os.path.join(self.folder, "record.txt")
+        self.viewer = prepomax.Viewer([sys.executable, self.fake, self.record], self.copies, drive_window=False)
+        self.addCleanup(self.viewer.close)
 
-    def _argumentos(self):
+    def _arguments(self):
         for _ in range(100):
-            if os.path.exists(self.registro) and os.path.getsize(self.registro):
-                with open(self.registro) as f:
+            if os.path.exists(self.record) and os.path.getsize(self.record):
+                with open(self.record) as f:
                     return f.read().splitlines()
             time.sleep(0.1)
-        self.fail("o programa não foi iniciado")
+        self.fail("the program was not started")
 
-    def test_abre_copia_com_tensao_primeiro(self):
-        self.vis.mostrar(self.frd)
-        args = self._argumentos()
+    def test_opens_copy_with_stress_first(self):
+        self.viewer.show(self.frd)
+        args = self._arguments()
         self.assertEqual(args[0], "-f")
-        self.assertEqual(os.path.dirname(args[1]), self.copias)  # cópia: o CalculiX sobrescreve o original
+        self.assertEqual(os.path.dirname(args[1]), self.copies)  # a copy: CalculiX overwrites the original
         self.assertEqual(args[2:4], ["-u", "MM_TON_S_C"])
-        # Aberto pelo FreeCAD, com a pasta de trabalho dele, o PrePoMax não carrega o .frd.
+        # Opened by FreeCAD, with FreeCAD's working folder, PrePoMax does not load the .frd.
         self.assertEqual(os.path.normcase(args[4]), os.path.normcase(os.path.dirname(sys.executable)))
         with open(args[1]) as f:
-            self.assertEqual(_blocos(f.read()), ["STRESS", "DISP"])
+            self.assertEqual(_blocks(f.read()), ["STRESS", "DISP"])
 
-    def test_sem_comandar_a_janela_reabre(self):
-        self.vis.mostrar(self.frd)
-        primeiro = self.vis.processo
-        self.vis.mostrar(self.frd)
-        self.assertIsNotNone(primeiro.wait(timeout=10))  # a janela anterior foi fechada
-        self.assertIsNone(self.vis.processo.poll())
-        self.assertEqual(len(os.listdir(self.copias)), 1)  # a cópia anterior foi apagada
+    def test_without_driving_the_window_reopens(self):
+        self.viewer.show(self.frd)
+        first = self.viewer.process
+        self.viewer.show(self.frd)
+        self.assertIsNotNone(first.wait(timeout=10))  # the previous window was closed
+        self.assertIsNone(self.viewer.process.poll())
+        self.assertEqual(len(os.listdir(self.copies)), 1)  # the previous copy was deleted
 
-    def test_arquivo_final_nao_e_apagado(self):
-        final = os.path.join(self.pasta, "final.frd")
+    def test_final_file_is_not_deleted(self):
+        final = os.path.join(self.folder, "final.frd")
         shutil.copy(self.frd, final)
-        self.vis.mostrar(self.frd)
-        self.vis.mostrar_arquivo(final)
+        self.viewer.show(self.frd)
+        self.viewer.show_file(final)
         self.assertTrue(os.path.exists(final))
-        self.assertEqual(os.listdir(self.copias), [])
+        self.assertEqual(os.listdir(self.copies), [])
 
 
-@unittest.skipUnless(prepomax.encontrar(), "PrePoMax não instalado")
-class TestVisualizadorPrePoMax(_Base):
+@unittest.skipUnless(prepomax.find(), "PrePoMax not installed")
+class TestViewerPrePoMax(_Base):
     def setUp(self):
         super().setUp()
-        self.recuperacao = prepomax.arquivo_recuperacao(prepomax.encontrar())
-        if os.path.exists(self.recuperacao):
-            self.skipTest("há um arquivo de recuperação do PrePoMax de uma sessão sua; não mexo nele")
-        self.addCleanup(lambda: os.path.exists(self.recuperacao) and os.remove(self.recuperacao))
-        from otimizador.fea import arquivo_frd, rodar_fea
-        from otimizador.modelo import encontrar_modelo
-        from tests.util import EXEMPLO_L, abrir_copia
-        ccx = os.path.join(self.pasta, "ccx")
-        rodar_fea(encontrar_modelo(abrir_copia(EXEMPLO_L, self)), ccx)
-        self.frd = arquivo_frd(ccx)
+        self.recovery = prepomax.recovery_file(prepomax.find())
+        if os.path.exists(self.recovery):
+            self.skipTest("there is a PrePoMax recovery file from one of your sessions; leaving it alone")
+        self.addCleanup(lambda: os.path.exists(self.recovery) and os.remove(self.recovery))
+        from optimizer.fea import frd_file, run_fea
+        from optimizer.model import find_model
+        from tests.util import L_EXAMPLE, open_copy
+        ccx = os.path.join(self.folder, "ccx")
+        run_fea(find_model(open_copy(L_EXAMPLE, self)), ccx)
+        self.frd = frd_file(ccx)
 
-    def test_atualiza_a_mesma_janela(self):
-        vis = prepomax.Visualizador([prepomax.encontrar()], self.copias)
-        self.addCleanup(vis.fechar)
-        vis.mostrar(self.frd)
-        vis.esperar()
-        self.assertTrue(vis.ultimo_ajuste_ok, "não girou para a vista isométrica")
-        pid = vis.processo.pid
-        # Tela dividida: o FreeCAD fica com a metade esquerda.
-        self.assertEqual(parte_visivel(pid), janelas.metade(janelas.area_de_trabalho(), janelas.DIREITA))
+    def test_updates_the_same_window(self):
+        viewer = prepomax.Viewer([prepomax.find()], self.copies)
+        self.addCleanup(viewer.close)
+        viewer.show(self.frd)
+        viewer.wait()
+        self.assertTrue(viewer.last_drive_ok, "did not turn to the isometric view")
+        pid = viewer.process.pid
+        # Split screen: FreeCAD takes the left half.
+        self.assertEqual(visible_part(pid), split_screen.half(split_screen.work_area(), split_screen.RIGHT))
 
-        vis.mostrar(self.frd)
-        vis.esperar()
-        self.assertTrue(vis.ultimo_ajuste_ok, "não abriu o novo resultado na janela")
-        self.assertEqual(vis.processo.pid, pid)       # mesma janela
-        self.assertEqual(parte_visivel(pid), janelas.metade(janelas.area_de_trabalho(), janelas.DIREITA))
-        self.assertIsNone(vis.processo.poll())
-        self.assertEqual(len(os.listdir(self.copias)), 1)
+        viewer.show(self.frd)
+        viewer.wait()
+        self.assertTrue(viewer.last_drive_ok, "did not open the new result in the window")
+        self.assertEqual(viewer.process.pid, pid)       # same window
+        self.assertEqual(visible_part(pid), split_screen.half(split_screen.work_area(), split_screen.RIGHT))
+        self.assertIsNone(viewer.process.poll())
+        self.assertEqual(len(os.listdir(self.copies)), 1)
 
-        # Fechado à força, o PrePoMax deixa um arquivo de recuperação e pergunta por ele
-        # na próxima abertura (e não carrega o .frd): tem que fechar como pelo X.
-        self.assertTrue(prepomax.fechar_pelo_x(vis.processo.pid))
-        self.assertFalse(os.path.exists(self.recuperacao))
+        # When killed, PrePoMax leaves a recovery file and asks about it on the next
+        # start (and does not load the .frd): it must be closed as if by the X.
+        self.assertTrue(prepomax.close_like_x(viewer.process.pid))
+        self.assertFalse(os.path.exists(self.recovery))
 
-    def test_pergunta_de_recuperacao_nao_trava(self):
-        # Um arquivo de recuperação de outra sessão: guardado e a pergunta respondida "não".
-        with open(self.recuperacao, "wb") as f:
-            f.write(HISTORICO_FALSO)
-        vis = prepomax.Visualizador([prepomax.encontrar()], self.copias)
-        self.addCleanup(vis.fechar)
-        vis.mostrar(self.frd)
-        vis.esperar()
-        self.assertTrue(vis.ultimo_ajuste_ok)
-        guardados = [n for n in os.listdir(self.pasta) if n.startswith("prepomax_recuperacao")]
-        self.assertEqual(len(guardados), 1)
-        with open(os.path.join(self.pasta, guardados[0]), "rb") as f:
-            self.assertEqual(f.read(), HISTORICO_FALSO)
+    def test_recovery_question_does_not_hang(self):
+        # A recovery file from another session: kept, and the question answered "no".
+        with open(self.recovery, "wb") as f:
+            f.write(FAKE_HISTORY)
+        viewer = prepomax.Viewer([prepomax.find()], self.copies)
+        self.addCleanup(viewer.close)
+        viewer.show(self.frd)
+        viewer.wait()
+        self.assertTrue(viewer.last_drive_ok)
+        kept = [n for n in os.listdir(self.folder) if n.startswith("prepomax_recovery")]
+        self.assertEqual(len(kept), 1)
+        with open(os.path.join(self.folder, kept[0]), "rb") as f:
+            self.assertEqual(f.read(), FAKE_HISTORY)
 
 
 if __name__ == "__main__":

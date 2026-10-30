@@ -3,56 +3,55 @@ import subprocess
 import tempfile
 import unittest
 
-from otimizador.fea import FalhaAvaliacao, rodar_fea
-from otimizador.modelo import encontrar_modelo
-from otimizador.tensao import distancia_faces
-from otimizador.modelo import faces_cc
-from tests.util import EXEMPLO_L, abrir_copia
+from optimizer.fea import EvaluationFailed, run_fea
+from optimizer.model import constraint_faces, find_model
+from optimizer.stress import face_distance
+from tests.util import L_EXAMPLE, open_copy
 
 
 class TestFea(unittest.TestCase):
-    def test_roda_exemplo(self):
-        m = encontrar_modelo(abrir_copia(EXEMPLO_L, self))
-        r = rodar_fea(m, tempfile.mkdtemp())
+    def test_runs_example(self):
+        m = find_model(open_copy(L_EXAMPLE, self))
+        r = run_fea(m, tempfile.mkdtemp())
         self.assertTrue(200 < max(r.vonMises) < 5000, max(r.vonMises))  # r=1 mm: ~1080 MPa
-        resultados = [o for o in m.analise.Group if o.isDerivedFrom("Fem::FemResultObject")]
-        self.assertEqual(len(resultados), 1)
+        results = [o for o in m.analysis.Group if o.isDerivedFrom("Fem::FemResultObject")]
+        self.assertEqual(len(results), 1)
         self.assertEqual(len(r.NodeNumbers), len(r.vonMises))
 
-    def test_cria_pasta_de_trabalho(self):
-        m = encontrar_modelo(abrir_copia(EXEMPLO_L, self))
-        pasta = os.path.join(tempfile.mkdtemp(), "nova", "ccx")
-        rodar_fea(m, pasta)
-        self.assertTrue(any(n.endswith(".inp") for n in os.listdir(pasta)))
+    def test_creates_work_folder(self):
+        m = find_model(open_copy(L_EXAMPLE, self))
+        folder = os.path.join(tempfile.mkdtemp(), "new", "ccx")
+        run_fea(m, folder)
+        self.assertTrue(any(n.endswith(".inp") for n in os.listdir(folder)))
 
-    def test_nao_abre_janela_de_console(self):
-        # O FreeCAD inicia o CalculiX sem esconder a janela: no Windows aparece um cmd a cada iteração.
-        chamadas = []
+    def test_no_console_window(self):
+        # FreeCAD starts CalculiX without hiding the window: on Windows a cmd shows up at every iteration.
+        calls = []
         original = subprocess.Popen
 
-        def registrar(*args, **kwargs):
-            chamadas.append(kwargs)
+        def record(*args, **kwargs):
+            calls.append(kwargs)
             return original(*args, **kwargs)
 
-        subprocess.Popen = registrar
+        subprocess.Popen = record
         self.addCleanup(setattr, subprocess, "Popen", original)
-        m = encontrar_modelo(abrir_copia(EXEMPLO_L, self))
-        rodar_fea(m, tempfile.mkdtemp())
-        self.assertTrue(chamadas)
-        for kwargs in chamadas:
+        m = find_model(open_copy(L_EXAMPLE, self))
+        run_fea(m, tempfile.mkdtemp())
+        self.assertTrue(calls)
+        for kwargs in calls:
             self.assertTrue(kwargs.get("creationflags", 0) & subprocess.CREATE_NO_WINDOW, kwargs)
 
-    def test_falha_vira_mensagem(self):
-        doc = abrir_copia(EXEMPLO_L, self)
-        m = encontrar_modelo(doc)
+    def test_failure_becomes_message(self):
+        doc = open_copy(L_EXAMPLE, self)
+        m = find_model(doc)
         doc.removeObject(m.material.Name)
-        with self.assertRaises(FalhaAvaliacao) as ctx:
-            rodar_fea(m, tempfile.mkdtemp())
+        with self.assertRaises(EvaluationFailed) as ctx:
+            run_fea(m, tempfile.mkdtemp())
         self.assertTrue(str(ctx.exception))
 
-    def test_distancia_faces(self):
-        m = encontrar_modelo(abrir_copia(EXEMPLO_L, self))
-        dist = distancia_faces(faces_cc(m)["ConstraintFixed"])  # face z = 0
+    def test_face_distance(self):
+        m = find_model(open_copy(L_EXAMPLE, self))
+        dist = face_distance(constraint_faces(m)["ConstraintFixed"])  # face z = 0
         self.assertAlmostEqual(dist((90.0, -10.0, 7.0)), 7.0, 6)
 
 

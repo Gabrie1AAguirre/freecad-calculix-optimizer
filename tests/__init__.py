@@ -1,4 +1,4 @@
-"""Torna o FreeCAD importável nos testes (rodar com o python.exe do FreeCAD)."""
+"""Makes FreeCAD importable in the tests (run them with FreeCAD's python.exe)."""
 import os
 import sys
 
@@ -8,4 +8,4 @@ for _p in (_BIN, os.path.join(os.path.dirname(_BIN), "lib")):
         sys.path.append(_p)
 
 import FreeCAD  # noqa: E402,F401
-import Fem  # noqa: E402,F401  (registra os caminhos dos módulos femmesh/femtools)
+import Fem  # noqa: E402,F401  (registers the paths of the femmesh/femtools modules)

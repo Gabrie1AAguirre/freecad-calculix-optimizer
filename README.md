@@ -1,220 +1,218 @@
-# Otimizador de forma FreeCAD + CalculiX
+# FreeCAD + CalculiX shape optimizer
 
-Ferramenta que pega uma peça do FreeCAD já preparada com uma análise de tensões
-e procura, sozinha, **a versão mais leve da peça cujo Von Mises máximo fique
-abaixo de um limite** que você define. Ela muda as cotas que você liberou (um
-raio, uma espessura...), gera a malha, roda o CalculiX, mede a tensão e repete.
-Ao vivo, a janela do FreeCAD mostra a peça mudando de forma e o
-[PrePoMax](https://prepomax.fs.um.si/) mostra o resultado de cada análise, com
-as cores de Von Mises e a barra de tensão.
+A tool that takes a FreeCAD part already set up with a stress analysis and
+searches, on its own, for **the lightest version of the part whose maximum Von
+Mises stress stays below a limit** you choose. It changes the dimensions you
+released (a radius, a thickness...), meshes the part, runs CalculiX, measures the
+stress and repeats. Live, the FreeCAD window shows the part changing shape and
+[PrePoMax](https://prepomax.fs.um.si/) shows the result of each analysis, with
+the Von Mises colors and the stress color bar.
 
-Não usa IA: é otimização paramétrica clássica (algoritmo COBYLA do SciPy).
+No AI involved: it is classic parametric optimization (SciPy's COBYLA algorithm).
 
-![Peça em L otimizada, colorida pelo Von Mises](docs/imagens/vista_exemplo.png)
+![Optimized L part, colored by Von Mises](docs/images/example_view.png)
 
-## Requisitos
+## Requirements
 
 - Windows
-- [FreeCAD 1.1](https://www.freecad.org/downloads.php) instalado (já traz Gmsh,
-  CalculiX, NumPy, SciPy e Matplotlib — não é preciso instalar mais nada)
-- Python 3 no sistema, só para rodar o comando `otimizar.py` (o cálculo em si
-  roda dentro do Python do FreeCAD)
+- [FreeCAD 1.1](https://www.freecad.org/downloads.php) installed (it already ships
+  Gmsh, CalculiX, NumPy, SciPy and Matplotlib — nothing else to install)
+- Python 3 on the system, only to run the `optimize.py` command (the computation
+  itself runs inside FreeCAD's Python)
+- [PrePoMax](https://prepomax.fs.um.si/) (optional, tested with 2.6) to view the
+  stresses. Without it, the colors are shown in the FreeCAD window itself.
 
-- [PrePoMax](https://prepomax.fs.um.si/) (opcional, testado com a 2.6) para ver
-  as tensões. Sem ele, as cores aparecem na própria janela do FreeCAD.
+If FreeCAD is not in `C:\Program Files\FreeCAD 1.1`, use
+`--freecad "C:\path\FreeCAD 1.1\bin"` or set the `FREECAD_BIN` environment variable.
 
-Se o FreeCAD não estiver em `C:\Program Files\FreeCAD 1.1`, use
-`--freecad "C:\caminho\FreeCAD 1.1\bin"` ou defina a variável de ambiente `FREECAD_BIN`.
+PrePoMax is searched for in `Documents`, `Desktop`, `Downloads` and
+`Program Files` (folders whose names start with `PrePoMax`). If it is somewhere
+else, use `--prepomax "C:\path\PrePoMax v2.6.0"` or the `PREPOMAX_BIN`
+variable. To not open it, use `--no-prepomax`.
 
-O PrePoMax é procurado em `Documentos`, `Área de Trabalho`, `Downloads` e
-`Arquivos de Programas` (pastas que começam com `PrePoMax`). Se estiver em
-outro lugar, use `--prepomax "C:\caminho\PrePoMax v2.6.0"` ou a variável
-`PREPOMAX_BIN`. Para não abri-lo, use `--sem-prepomax`.
+## Running the example
 
-## Rodando o exemplo
-
-No terminal do VS Code, na pasta do projeto:
+In a terminal (for example VS Code's), in the project folder:
 
 ```powershell
-python otimizar.py exemplos\L_part.FCStd --checar          # confere se a peça está pronta
-python otimizar.py exemplos\L_part.FCStd                   # otimiza ao vivo: FreeCAD + PrePoMax
-python otimizar.py exemplos\L_part.FCStd --sem-interface   # mesma coisa, sem abrir janelas
+python optimize.py examples\L_part.FCStd --check      # checks that the part is ready
+python optimize.py examples\L_part.FCStd              # optimizes live: FreeCAD + PrePoMax
+python optimize.py examples\L_part.FCStd --headless   # same thing, without opening windows
 ```
 
-O exemplo é uma cantoneira em L de aço (180 × 230 mm, 20 mm de espessura), presa
-pela base e com 5000 N empurrando o topo da perna vertical. Os parâmetros livres
-são o raio do canto interno e as espessuras das duas pernas; o limite é 250 MPa.
+The example is a steel L bracket (180 × 230 mm, 20 mm thick), fixed at its base
+with 5000 N pushing the top of the vertical leg. The free parameters are the
+inner corner radius and the thicknesses of both legs; the limit is 250 MPa.
 
-No terminal aparece uma linha por iteração:
+The terminal shows one line per iteration:
 
 ```
-iter  raio_canto  espessura_vertical  espessura_horizontal  VonMises_max      massa    status
-   1         1.0                30.0                  30.0      1108 MPa    1.78 kg    acima do limite (menor tensão até agora)
-   2         5.8                30.0                  30.0       524 MPa    1.78 kg    acima do limite (menor tensão até agora)
+iter  corner_radius  vertical_thickness  horizontal_thickness  VonMises_max       mass    status
+   1            1.0                30.0                  30.0      1108 MPa    1.78 kg    above limit (lowest stress so far)
+   2            5.8                30.0                  30.0       524 MPa    1.78 kg    above limit (lowest stress so far)
  ...
+  18           20.0                38.7                  20.0       248 MPa    1.84 kg    OK ✓ best so far
 ```
 
-Resultado do exemplo (30 iterações):
+Result of the example (20 iterations, the default):
 
-| | Raio do canto | Perna vertical | Perna horizontal | Von Mises máx. | Massa |
+| | Corner radius | Vertical leg | Horizontal leg | Max. Von Mises | Mass |
 |---|---|---|---|---|---|
-| Original | 1 mm | 30 mm | 30 mm | 1108 MPa | 1,78 kg |
-| Otimizada | 20 mm | 38,9 mm | 20 mm | 249 MPa ✓ | 1,85 kg (+4%) |
+| Original | 1 mm | 30 mm | 30 mm | 1108 MPa | 1.78 kg |
+| Optimized | 20 mm | 38.7 mm | 20 mm | 248 MPa ✓ | 1.84 kg (+4%) |
 
-A ferramenta arredondou o canto ao máximo, engrossou a perna vertical (onde
-está o momento fletor) e afinou a horizontal, que quase não trabalha, para
-compensar o peso.
+The tool rounded the corner as much as allowed, thickened the vertical leg (where the
+bending moment is) and thinned the horizontal one, which barely works, to offset the weight.
 
-![Von Mises e massa por iteração](docs/imagens/grafico_exemplo.png)
+![Von Mises and mass per iteration](docs/images/example_chart.png)
 
-Enquanto isso, a tela fica dividida: **à esquerda o FreeCAD**, mostrando a peça
-mudando de forma (com o painel Model/Tasks estreito, para a peça aparecer maior), e **à direita uma única janela do PrePoMax**, atualizada com o
-resultado de cada iteração, já em
-**STRESS → MISES** (MPa), com a barra de cores e na vista isométrica. A troca leva
-uns 10 s; se a próxima iteração terminar antes, o PrePoMax pula direto para a mais
-nova. No fim, ele fica aberto com a melhor iteração. Cada iteração leva de 10 a 20 s.
-A divisão vale só para essa execução: depois, o FreeCAD volta a abrir com a janela e
-os painéis do tamanho de sempre.
-**Ctrl+C** no terminal para depois da iteração atual e guarda o melhor resultado até ali.
+Meanwhile the screen is split: **FreeCAD on the left**, showing the part changing
+shape (with a narrow Model/Tasks panel so the part shows up larger), and **a single
+PrePoMax window on the right**, updated with the result of each iteration, already on
+**STRESS → MISES** (MPa), with the color bar and in the isometric view. Each swap
+takes about 10 s; if the next iteration finishes before that, PrePoMax jumps straight
+to the newest one. At the end it stays open with the best iteration. Each iteration
+takes 10 to 20 s. The split only applies to this run: afterwards FreeCAD opens again
+with its usual window and panel sizes.
+**Ctrl+C** in the terminal stops after the current iteration and keeps the best result so far.
 
-Para atualizar a mesma janela, o programa usa o próprio PrePoMax (*File → Open*,
-escolhe as unidades mm/ton/s e gira a vista): durante a otimização, deixe a janela
-dele em paz. Ele é sempre fechado como pelo X; se você o fechar à força
-(Gerenciador de Tarefas), na próxima vez o PrePoMax pergunta se quer recuperar a
-sessão — o programa guarda uma cópia desse arquivo de recuperação em
-`resultados\...\trabalho\` e responde que não. O que aconteceu com a janela fica em
-`resultados\...\trabalho\prepomax_janela.log`.
+To update the same window, the tool drives PrePoMax itself (*File → Open*, picks the
+mm/ton/s units and turns the view): during the optimization, leave its window alone.
+It is always closed as if by the X button; if you kill it (Task Manager), next time
+PrePoMax asks whether to recover the session — the tool keeps a copy of that recovery
+file in `results\...\work\` and answers no. What happened to the window is logged in
+`results\...\work\prepomax_window.log`.
 
-### O que significa cada status
+### What each status means
 
-| Status | Significado |
+| Status | Meaning |
 |---|---|
-| `OK ✓` | Von Mises abaixo do limite. |
-| `OK ⚠ verificar` | Abaixo do limite fora das zonas perto da fixação e da força, mas há um pico acima do limite *dentro* delas, ou o máximo está na borda delas. Pode ser artefato numérico ou um ponto crítico real: confira. |
-| `acima do limite` | Von Mises acima do limite. |
-| `inválida` | Não deu para avaliar (geometria impossível, malha falhou, fixação/força mudou de face...). O motivo aparece na linha. |
+| `OK ✓` | Von Mises below the limit. |
+| `OK ⚠ check` | Below the limit outside the zones near the fixed constraints and forces, but there is a peak above the limit *inside* them, or the maximum is at their edge. It may be a numerical artifact or a real critical point: check it. |
+| `above limit` | Von Mises above the limit. |
+| `invalid` | Could not be evaluated (impossible geometry, mesh failed, a fixed constraint/force moved to another face...). The reason is shown on the line. |
 
-### Resultados
+### Results
 
-Cada execução cria `resultados\<peça>_<data-hora>\` com:
+Each run creates `results\<part>_<date-time>\` with:
 
-- `<peça>_otimizada.FCStd` — a melhor versão, com os resultados FEM dentro;
-- `<peça>_otimizada.frd` — o resultado do CalculiX da melhor versão, para abrir
-  no PrePoMax quando quiser (*File → Open*);
-- `historico.csv` — todas as tentativas (abre direto no Excel em português);
-- `grafico.png` — tensão e massa por iteração;
-- `vista.png` — a peça final pintada pelo Von Mises (modo com janela);
-- `log.txt` — tudo o que apareceu no terminal.
+- `<part>_optimized.FCStd` — the best version, with the FEM results inside;
+- `<part>_optimized.frd` — the CalculiX result of the best version, to open in
+  PrePoMax whenever you want (*File → Open*);
+- `history.csv` — every attempt;
+- `chart.png` — stress and mass per iteration;
+- `view.png` — the final part painted by Von Mises (window mode);
+- `log.txt` — everything shown in the terminal.
 
-O arquivo original **nunca é alterado**.
+The original file is **never changed**.
 
-## Tutorial: preparando uma peça nova
+## Tutorial: preparing a new part
 
-A ferramenta não precisa saber nada sobre a sua peça: tudo vai dentro do `.FCStd`.
-São dois passos no FreeCAD, feitos uma vez por peça.
+The tool does not need to know anything about your part: everything goes inside the
+`.FCStd`. There are two steps in FreeCAD, done once per part.
 
-### 1. A análise de tensões (bancada FEM)
+### 1. The stress analysis (FEM workbench)
 
-1. Modele a peça normalmente (PartDesign: Body, Sketch, Pad...).
-2. Troque para a bancada **FEM**.
-3. **Analysis container** (ícone "A"): cria a análise com o solver CalculiX.
-4. **Material for solid**: escolha o material (ex.: aço). A densidade dele é
-   usada para calcular a massa.
-5. **Fixed boundary condition**: selecione a(s) face(s) presa(s).
-6. **Force load**: selecione a face onde a força entra, informe o valor (N) e a
-   direção.
-7. **FEM mesh from shape by Gmsh**: selecione o Body. O *tamanho máximo de
-   elemento* (ex.: 5 mm) define a precisão — e o tempo — de cada iteração.
-8. Rode uma vez pelo próprio FreeCAD (duplo clique no solver → *Run*) para ver
-   se está tudo certo.
+1. Model the part as usual (PartDesign: Body, Sketch, Pad...).
+2. Switch to the **FEM** workbench.
+3. **Analysis container** (the "A" icon): creates the analysis with the CalculiX solver.
+4. **Material for solid**: choose the material (e.g. steel). Its density is used to
+   compute the mass.
+5. **Fixed boundary condition**: select the fixed face(s).
+6. **Force load**: select the face where the force is applied, enter the value (N)
+   and the direction.
+7. **FEM mesh from shape by Gmsh**: select the Body. The *maximum element size*
+   (e.g. 5 mm) sets the accuracy — and the time — of each iteration.
+8. Run it once from FreeCAD itself (double-click the solver → *Run*) to check that
+   everything is right.
 
-![Árvore do exemplo: a Analysis com fixação, força, material, malha e solver CalculiX; na vista, a peça com a base presa e a força no topo](docs/imagens/arvore_fem.png)
+![Example tree: the Analysis with fixed constraint, force, material, mesh and CalculiX solver; in the view, the part with its base fixed and the force at the top](docs/images/fem_tree.png)
 
-### 2. A planilha `Parametros`
+### 2. The `Parameters` spreadsheet
 
-Ela lista **só o que pode mudar**. Tudo que não estiver nela fica como está.
+It lists **only what may change**. Anything not in it stays as it is.
 
-1. Bancada **Spreadsheet** → *Create spreadsheet*. Renomeie para `Parametros`.
-2. Uma linha por parâmetro: descrição na coluna A, valor na **B**, mínimo na
-   **C** e máximo na **D**.
-3. Dê um **alias** (nome) à célula do valor: clique com o botão direito na
-   célula B → *Properties* → *Alias*, ex.: `raio_canto`.
-4. Mais abaixo, células de configuração (também com alias):
+1. **Spreadsheet** workbench → *Create spreadsheet*. Rename it to `Parameters`.
+2. One row per parameter: description in column A, value in **B**, minimum in
+   **C** and maximum in **D**.
+3. Give the value cell an **alias** (name): right-click cell B → *Properties* →
+   *Alias*, e.g. `corner_radius`.
+4. Further down, settings cells (also with an alias):
 
-| Alias | Obrigatório | O que é |
+| Alias | Required | What it is |
 |---|---|---|
-| `tensao_limite` | sim | Von Mises máximo permitido, em MPa (ex.: escoamento ÷ fator de segurança) |
-| `max_iteracoes` | não (20) | quantas análises no máximo; ao chegar nesse número a otimização para, tendo atingido o limite ou não, e entrega a melhor combinação encontrada |
-| `zona_exclusao_mm` | não (2 × tamanho de elemento) | raio da zona ignorada em volta das fixações e forças |
-| `excluir_<Nome>` | não (1) | `0` para *não* ignorar a zona de uma condição, ex.: `excluir_ConstraintFixed` |
+| `stress_limit` | yes | maximum allowed Von Mises, in MPa (e.g. yield strength ÷ safety factor) |
+| `max_iterations` | no (20) | maximum number of analyses; on reaching it the optimization stops, whether the limit was reached or not, and delivers the best combination found |
+| `exclusion_zone_mm` | no (2 × element size) | radius of the zone ignored around fixed constraints and forces |
+| `exclude_<Name>` | no (1) | `0` to *not* ignore the zone of one condition, e.g. `exclude_ConstraintFixed` |
 
-Exemplo (a planilha da peça em L):
+Example (the L part spreadsheet):
 
 |   | A | B | C | D |
 |---|---|---|---|---|
-| 1 | Parâmetro | Valor | Mínimo | Máximo |
-| 2 | Raio do canto interno (mm) | `raio_canto` = 1 | 1 | 20 |
-| 3 | Espessura da perna vertical (mm) | `espessura_vertical` = 30 | 20 | 45 |
-| 4 | Espessura da perna horizontal (mm) | `espessura_horizontal` = 30 | 20 | 45 |
-| 6 | Configurações | | | |
-| 7 | Von Mises máximo permitido (MPa) | `tensao_limite` = 250 | | |
-| 8 | Máximo de iterações | `max_iteracoes` = 20 | | |
+| 1 | Parameter | Value | Minimum | Maximum |
+| 2 | Inner corner radius (mm) | `corner_radius` = 1 | 1 | 20 |
+| 3 | Vertical leg thickness (mm) | `vertical_thickness` = 30 | 20 | 45 |
+| 4 | Horizontal leg thickness (mm) | `horizontal_thickness` = 30 | 20 | 45 |
+| 6 | Settings | | | |
+| 7 | Maximum allowed Von Mises (MPa) | `stress_limit` = 250 | | |
+| 8 | Maximum iterations | `max_iterations` = 20 | | |
 
-![Planilha Parametros do exemplo: com a célula B2 selecionada, o campo Alias mostra raio_canto](docs/imagens/planilha_parametros.png)
+![Parameters spreadsheet of the example: with cell B2 selected, the Alias field shows corner_radius](docs/images/parameters_spreadsheet.png)
 
-Na planilha, selecione uma célula para ver o alias dela no campo **Alias**, no alto.
+In the spreadsheet, select a cell to see its alias in the **Alias** field at the top.
 
-### 3. Ligar as cotas à planilha
+### 3. Linking the dimensions to the spreadsheet
 
-No Sketcher, dê duplo clique numa cota; no campo do valor clique no botão
-**f(x)** e digite `Parametros.raio_canto`. A cota passa a obedecer à planilha.
-Funciona igual para o comprimento de um Pad ou qualquer outro campo numérico.
+In the Sketcher, double-click a dimension; in the value field click the **f(x)**
+button and type `Parameters.corner_radius`. The dimension now follows the
+spreadsheet. It works the same for the length of a Pad or any other numeric field.
 
-![Esboço da peça em L: as cotas ligadas à planilha aparecem com f(x), na lista e no desenho](docs/imagens/esboco_cotas_fx.png)
+![Sketch of the L part: the dimensions linked to the spreadsheet show f(x), in the list and in the drawing](docs/images/sketch_fx_dimensions.png)
 
-No diálogo da cota, o botão **f(x)** abre o editor da expressão:
+In the dimension dialog, the **f(x)** button opens the expression editor:
 
-![Diálogo do raio com o editor de expressão mostrando Parametros.raio_canto](docs/imagens/cota_expressao.png)
+![Radius dialog with the expression editor showing Parameters.corner_radius](docs/images/dimension_expression.png)
 
-**Raio de canto: use o fillet do Sketcher**, não o Fillet do PartDesign aplicado
-na aresta. O do PartDesign depende do "nome" da aresta, que pode mudar quando
-outra cota muda (o problema de nomes topológicos do FreeCAD); o do Sketcher não.
+**Corner radius: use the Sketcher fillet**, not the PartDesign Fillet applied to the
+edge. The PartDesign one depends on the edge "name", which may change when another
+dimension changes (FreeCAD's topological naming problem); the Sketcher one does not.
 
-### 4. Conferir e rodar
+### 4. Check and run
 
 ```powershell
-python otimizar.py minha_peca.FCStd --checar
-python otimizar.py minha_peca.FCStd
+python optimize.py my_part.FCStd --check
+python optimize.py my_part.FCStd
 ```
 
-O `--checar` lista, em português, o que falta: análise, fixação, força,
-parâmetros sem mínimo/máximo, alias que nenhuma cota usa, etc.
+`--check` lists what is missing: analysis, fixed constraint, force, parameters
+without minimum/maximum, aliases that no dimension uses, etc.
 
-## Por que a tensão de um canto vivo não é confiável
+## Why the stress at a sharp corner cannot be trusted
 
-Num canto interno de 90° sem raio, a tensão calculada **cresce sem parar** à
-medida que a malha fica mais fina: não existe um valor "verdadeiro". Por isso o
-primeiro parâmetro a liberar costuma ser um raio no canto — ele transforma esse
-pico infinito num valor real que dá para comparar entre iterações.
+At a 90° inner corner without a radius, the computed stress **keeps growing** as the
+mesh gets finer: there is no "true" value. That is why the first parameter to release
+is usually a corner radius — it turns that infinite peak into a real value that can be
+compared between iterations.
 
-O mesmo vale para as bordas das faces onde estão a fixação e a força: ali a
-malha cria picos que não existem na peça real. Por isso a ferramenta ignora uma
-pequena zona em volta delas (`zona_exclusao_mm`). Mas um pico real também pode
-estar ali — por isso o status `OK ⚠ verificar` e a opção `excluir_<Nome> = 0`.
+The same goes for the edges of the faces holding the fixed constraints and the force:
+there the mesh creates peaks that do not exist in the real part. That is why the tool
+ignores a small zone around them (`exclusion_zone_mm`). But a real peak may also be
+there — hence the `OK ⚠ check` status and the `exclude_<Name> = 0` option.
 
-## Rodando os testes
+## Running the tests
 
 ```powershell
 & "C:\Program Files\FreeCAD 1.1\bin\python.exe" -m unittest discover -s tests -t . -v
 ```
 
-Os testes de ponta a ponta rodam o FreeCAD de verdade (alguns abrem a janela)
-e levam alguns minutos.
+The end-to-end tests run the real FreeCAD (some open its window) and take a few
+minutes.
 
-O exemplo `exemplos\L_part.FCStd` foi gerado por `ferramentas\preparar_exemplo_L.py`
-a partir da peça em L original (`tests\dados\L_part_original.FCStd`, sem planilha e
-com canto vivo); o script mostra como preparar uma peça por código.
+The example `examples\L_part.FCStd` was generated by `tools\prepare_L_example.py`
+from the original L part (`tests\data\L_part_original.FCStd`, without spreadsheet and
+with a sharp corner); the script shows how to prepare a part with code.
 
-## Licença
+## License
 
 MIT
